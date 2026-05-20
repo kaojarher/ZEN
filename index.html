@@ -1491,8 +1491,7 @@
             showToast("⚠️ 尚未選擇職業，無法匯出存檔！", true);
             return;
         }
-        const saveDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        const saveFileName = `Zan_save_${saveDate}.json`;
+        const saveFileName = `Zan.json`;
         
         const savePackage = {
             version: "9.1",
