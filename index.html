@@ -445,17 +445,13 @@
 
         <div class="save-panel">
             <button onclick="exportGameSave()">📥 匯出存檔</button>
-            <label id="importBtnLabel" style="
-                display:flex; flex-direction:column; align-items:center; justify-content:center;
-                background:linear-gradient(#2a1e17,#0f0b08);
-                border:1px solid #00ffcc; color:#00ffcc;
-                padding:8px; cursor:pointer; font-weight:bold; font-size:15px;
-                text-align:center; line-height:1.5;" onclick="handleImportClick(event)">
+            <button id="importBtnLabel" onclick="handleImportClick()" style="border-color:#00ffcc; color:#00ffcc;">
                 📤 匯入存檔
-                <input type="file" id="uploadSaveFile" accept=".json,application/json,text/plain"
-                    style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
-                    onchange="importGameSave(this)">
-            </label>
+            </button>
+            <!-- file input 獨立在外，不被任何 onclick 干擾 -->
+            <input type="file" id="uploadSaveFile" accept=".json"
+                style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
+                onchange="importGameSave(this)">
         </div>
         <div style="text-align:right; margin-top:-6px;">
             <span onclick="openPasteImport()"
@@ -1410,15 +1406,14 @@
     function addLog(msg) { const logBox = document.getElementById("log"); const div = document.createElement("div"); div.innerText = msg; logBox.appendChild(div); logBox.scrollTop = logBox.scrollHeight; }
 
     // 匯入按鈕點擊：優先從 localStorage 快取讀取
-    function handleImportClick(e) {
+    function handleImportClick() {
         const cached = localStorage.getItem("ZanV9_lastSave");
         const cachedTime = localStorage.getItem("ZanV9_lastSaveTime");
         if (cached) {
-            // 有快取，彈出選擇彈窗
-            e.preventDefault();
             openCachedImportDialog(cached, cachedTime);
+        } else {
+            document.getElementById("uploadSaveFile").click();
         }
-        // 沒快取：讓 label 正常觸發 file input
     }
 
     function openCachedImportDialog(cached, cachedTime) {
@@ -1436,7 +1431,7 @@
                     </button>
                     <label style="display:block;width:100%;box-sizing:border-box;padding:12px;font-size:16px;text-align:center;background:#1a1d29;border:1px solid #888;color:#ccc;cursor:pointer;margin-bottom:10px;">
                         📁 選擇其他 JSON 檔案
-                        <input type="file" accept=".json,application/json,text/plain"
+                        <input type="file" accept=".json"
                             style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
                             onchange="importGameSave(this);document.getElementById('cachedImportOverlay').style.display='none';">
                     </label>
