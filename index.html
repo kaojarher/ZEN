@@ -368,12 +368,16 @@
             </div>
         </div>
         <div style="margin-top: 20px; border-top: 1px solid #3a2e2b; padding-top: 15px; text-align:center;">
-            <div style="position:relative; overflow:hidden; display:inline-block; width:80%;">
-                <button style="width:100%; border-color:#00ffcc; color:#00ffcc;">📂 載入已有修仙存檔 (JSON)</button>
-                <input type="file" id="uploadSaveFileOverlay" accept=".json"
-                    style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:17px;"
+            <label for="uploadSaveFileOverlay" style="
+                display:inline-flex; align-items:center; justify-content:center;
+                width:80%; background:linear-gradient(#2a1e17,#0f0b08);
+                border:1px solid #00ffcc; color:#00ffcc;
+                padding:12px; cursor:pointer; font-weight:bold; font-size:16px;">
+                📂 載入已有修仙存檔 (JSON)
+                <input type="file" id="uploadSaveFileOverlay" accept=".json,application/json,text/plain"
+                    style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
                     onchange="importGameSave(this)">
-            </div>
+            </label>
         </div>
     </div>
 </div>
@@ -440,12 +444,41 @@
         </div>
 
         <div class="save-panel">
-            <button onclick="exportGameSave()">📥 匯出修仙存檔</button>
-            <div style="position:relative; overflow:hidden;">
-                <button style="width:100%;">📤 匯入修仙存檔</button>
-                <input type="file" id="uploadSaveFile" accept=".json"
-                    style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:17px;"
+            <button onclick="exportGameSave()">📥 匯出存檔</button>
+            <label id="importBtnLabel" style="
+                display:flex; flex-direction:column; align-items:center; justify-content:center;
+                background:linear-gradient(#2a1e17,#0f0b08);
+                border:1px solid #00ffcc; color:#00ffcc;
+                padding:8px; cursor:pointer; font-weight:bold; font-size:15px;
+                text-align:center; line-height:1.5;" onclick="handleImportClick(event)">
+                📤 匯入存檔
+                <input type="file" id="uploadSaveFile" accept=".json,application/json,text/plain"
+                    style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
                     onchange="importGameSave(this)">
+            </label>
+        </div>
+        <div style="text-align:right; margin-top:-6px;">
+            <span onclick="openPasteImport()"
+                style="color:#666; font-size:13px; cursor:pointer; text-decoration:underline;">
+                📋 改用貼上匯入（備用）
+            </span>
+        </div>
+
+        <!-- 貼上匯入彈窗 -->
+        <div id="pasteImportOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); z-index:9999; justify-content:center; align-items:center; padding:16px;">
+            <div style="background:#0f111a; border:2px solid #d4af37; border-radius:6px; padding:20px; width:100%; max-width:520px;">
+                <p style="color:#d4af37; font-size:18px; font-weight:bold; margin:0 0 10px 0;">📤 匯入修仙存檔</p>
+                <p style="color:#aaa; font-size:15px; margin:0 0 10px 0;">
+                    請用檔案管理員打開你的 <span style="color:#00ffcc;">.json</span> 存檔，<br>
+                    複製全部內容後貼到下方框框中：
+                </p>
+                <textarea id="pasteJsonInput"
+                    style="width:100%; height:160px; background:#050508; border:1px solid #5c4033; color:#fff; font-size:14px; padding:8px; border-radius:3px; resize:vertical;"
+                    placeholder='在此貼上 JSON 存檔內容... ({"version":"9.1","heroClass":...})'></textarea>
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                    <button onclick="confirmPasteImport()" style="flex:1; background:linear-gradient(#0a2a1a,#041008); border-color:#00ffcc; color:#00ffcc; padding:12px; font-size:16px;">✅ 確認匯入</button>
+                    <button onclick="closePasteImport()" style="flex:1; background:#221111; color:#ffaaaa; padding:12px; font-size:16px;">❌ 取消</button>
+                </div>
             </div>
         </div>
 
@@ -1376,16 +1409,91 @@
     function enterActivePortal() { if (activePortal) { caveFloor = activePortal.floor; initMap("cave", "portal"); } }
     function addLog(msg) { const logBox = document.getElementById("log"); const div = document.createElement("div"); div.innerText = msg; logBox.appendChild(div); logBox.scrollTop = logBox.scrollHeight; }
 
+    // 匯入按鈕點擊：優先從 localStorage 快取讀取
+    function handleImportClick(e) {
+        const cached = localStorage.getItem("ZanV9_lastSave");
+        const cachedTime = localStorage.getItem("ZanV9_lastSaveTime");
+        if (cached) {
+            // 有快取，彈出選擇彈窗
+            e.preventDefault();
+            openCachedImportDialog(cached, cachedTime);
+        }
+        // 沒快取：讓 label 正常觸發 file input
+    }
+
+    function openCachedImportDialog(cached, cachedTime) {
+        let overlay = document.getElementById("cachedImportOverlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "cachedImportOverlay";
+            overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:9999;display:flex;justify-content:center;align-items:center;padding:16px;";
+            overlay.innerHTML = `
+                <div style="background:#0f111a;border:2px solid #d4af37;border-radius:6px;padding:20px;width:100%;max-width:480px;">
+                    <p style="color:#d4af37;font-size:19px;font-weight:bold;margin:0 0 10px;">📤 匯入存檔</p>
+                    <p style="color:#aaa;font-size:15px;margin:0 0 16px;">偵測到上次的存檔記錄：<br><span style="color:#00ffcc;" id="cachedSaveTime"></span></p>
+                    <button onclick="loadFromCache()" style="width:100%;padding:14px;font-size:17px;background:linear-gradient(#0a2a1a,#041008);border:2px solid #00ffcc;color:#00ffcc;margin-bottom:10px;">
+                        ⚡ 直接載入上次存檔
+                    </button>
+                    <label style="display:block;width:100%;box-sizing:border-box;padding:12px;font-size:16px;text-align:center;background:#1a1d29;border:1px solid #888;color:#ccc;cursor:pointer;margin-bottom:10px;">
+                        📁 選擇其他 JSON 檔案
+                        <input type="file" accept=".json,application/json,text/plain"
+                            style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"
+                            onchange="importGameSave(this);document.getElementById('cachedImportOverlay').style.display='none';">
+                    </label>
+                    <button onclick="document.getElementById('cachedImportOverlay').style.display='none';" style="width:100%;padding:10px;font-size:15px;background:#221111;color:#ffaaaa;">
+                        ❌ 取消
+                    </button>
+                </div>`;
+            document.body.appendChild(overlay);
+        }
+        document.getElementById("cachedSaveTime").innerText = cachedTime || "（時間不明）";
+        overlay.style.display = "flex";
+        overlay._cachedData = cached;
+    }
+
+    function loadFromCache() {
+        const overlay = document.getElementById("cachedImportOverlay");
+        try {
+            const loadedData = JSON.parse(overlay._cachedData);
+            if (applyLoadedData(loadedData)) {
+                overlay.style.display = "none";
+            }
+        } catch(e) {
+            showToast("❌ 快取存檔損壞：" + e.message, true);
+        }
+    }
+
+    // --- 📤 貼上 JSON 匯入（手機相容方案）---
+    function openPasteImport() {
+        document.getElementById("pasteJsonInput").value = "";
+        document.getElementById("pasteImportOverlay").style.display = "flex";
+        setTimeout(() => document.getElementById("pasteJsonInput").focus(), 100);
+    }
+
+    function closePasteImport() {
+        document.getElementById("pasteImportOverlay").style.display = "none";
+    }
+
+    function confirmPasteImport() {
+        const raw = document.getElementById("pasteJsonInput").value.trim();
+        if (!raw) { showToast("⚠️ 請先貼上 JSON 存檔內容！", true); return; }
+        try {
+            const loadedData = JSON.parse(raw);
+            if (applyLoadedData(loadedData)) closePasteImport();
+        } catch(err) {
+            showToast("❌ JSON 格式錯誤：" + err.message, true);
+        }
+    }
+
     // --- 📥 遊戲存檔匯出與匯入功能 (JSON) ---
     function exportGameSave() {
         if (player.heroClass === "未選擇") {
-            alert("⚠️ 尚未建立天命角色，無法生成修仙存檔！");
+            showToast("⚠️ 尚未選擇職業，無法匯出存檔！", true);
             return;
         }
-        const saveDate = new Date().toISOString().slice(0, 10);
-        const saveFileName = `ZanV9_Save_${player.heroClass}_${saveDate}.json`;
+        const saveDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const saveFileName = `Zan_save_${saveDate}.json`;
         
-        // 封裝核心與行囊數據
         const savePackage = {
             version: "9.1",
             heroClass: player.heroClass,
@@ -1402,73 +1510,106 @@
             quests: player.quests
         };
 
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savePackage, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", saveFileName);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        const jsonStr = JSON.stringify(savePackage, null, 2);
+
+        // ① 存到 localStorage（手機直接匯入用）
+        try {
+            localStorage.setItem("ZanV9_lastSave", jsonStr);
+            localStorage.setItem("ZanV9_lastSaveTime", new Date().toLocaleString());
+        } catch(e) {}
+
+        // ② 同時下載 JSON 檔（備份用）
+        try {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", saveFileName);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        } catch(e) {}
+
         addLog("📥 系統：修仙天命存檔已成功導出至您的本地行囊！");
+        showToast("📥 存檔完成！可直接點「匯入存檔」恢復進度");
+        updateImportBtnState();
+    }
+
+    // 更新匯入按鈕顯示（有快取時提示）
+    function updateImportBtnState() {
+        const t = localStorage.getItem("ZanV9_lastSaveTime");
+        const btn = document.getElementById("importBtnLabel");
+        if (btn && t) btn.innerHTML = `📤 匯入存檔<br><span style="font-size:12px;color:#aaa;">${t}</span>`;
+    }
+
+    // 自製 Toast 通知（取代 alert，iOS callback 內安全）
+    function showToast(msg, isError) {
+        let t = document.getElementById("gameToast");
+        if (!t) {
+            t = document.createElement("div");
+            t.id = "gameToast";
+            t.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a1d29;border:2px solid #d4af37;color:#fff;padding:14px 22px;border-radius:8px;font-size:17px;z-index:99999;text-align:center;max-width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.8);display:none;";
+            document.body.appendChild(t);
+        }
+        t.style.borderColor = isError ? "#ff4444" : "#00ffcc";
+        t.innerText = msg;
+        t.style.display = "block";
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.style.display = "none", 3500);
+    }
+
+    function applyLoadedData(loadedData) {
+        if (!loadedData.heroClass || !loadedData.inventory || !loadedData.scrolls) {
+            showToast("❌ 存檔格式不符，請確認是正確的 JSON 存檔", true); return false;
+        }
+        player.heroClass = loadedData.heroClass;
+        player.level = loadedData.level || 1;
+        player.hp = loadedData.hp;
+        player.maxHp = loadedData.maxHp;
+        player.mp = loadedData.mp;
+        player.maxMp = loadedData.maxMp;
+        player.gold = loadedData.gold;
+        player.baseDef = loadedData.baseDef || 5;
+        player.unidentifiedCount = loadedData.unidentifiedCount || 0;
+        player.inventory = loadedData.inventory;
+        player.scrolls = loadedData.scrolls;
+        if (loadedData.quests) player.quests = loadedData.quests;
+        syncHeroClassUI(player.heroClass);
+        updateScrollsCountUI();
+        renderInventoryUI();
+        syncMobileSpellCounts();
+        activePortal = null;
+        initMap("town");
+        initPeerNetwork();
+        addLog(`📤 系統：已成功匯入【${player.heroClass}】的修仙存檔！`);
+        showToast("🔮 讀檔成功！" + player.heroClass + " 已歸位");
+        return true;
     }
 
     function importGameSave(inputElement) {
         const file = inputElement.files[0];
         if (!file) return;
+        // 立即複製 file 內容，避免 iOS 清空 input 後失效
+        const fileBlob = file.slice(0, file.size);
+        inputElement.value = "";
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            // 讀取完成後才清空，確保手機瀏覽器不會提前中止
-            inputElement.value = "";
             try {
                 const loadedData = JSON.parse(e.target.result);
-                
-                // 驗證必要屬性
-                if (!loadedData.heroClass || !loadedData.inventory || !loadedData.scrolls) {
-                    alert("❌ 存檔秘卷格式不符，法陣無法解析此天命！");
-                    return;
-                }
-
-                // 還原主體屬性
-                player.heroClass = loadedData.heroClass;
-                player.level = loadedData.level || 1;
-                player.hp = loadedData.hp;
-                player.maxHp = loadedData.maxHp;
-                player.mp = loadedData.mp;
-                player.maxMp = loadedData.maxMp;
-                player.gold = loadedData.gold;
-                player.baseDef = loadedData.baseDef || 5;
-                player.unidentifiedCount = loadedData.unidentifiedCount || 0;
-                player.inventory = loadedData.inventory;
-                player.scrolls = loadedData.scrolls;
-                if (loadedData.quests) player.quests = loadedData.quests;
-
-                // 同步環境與刷新 UI
-                syncHeroClassUI(player.heroClass);
-                updateScrollsCountUI();
-                renderInventoryUI();
-                syncMobileSpellCounts();
-                
-                // 讀取成功後一律重置返回安全的城鎮
-                activePortal = null;
-                initMap("town");
-                initPeerNetwork();
-                
-                addLog(`📤 系統：成功突破時空裂隙！已成功匯入【${player.heroClass}】的修仙存檔。`);
-                alert("🔮 讀檔法陣共鳴成功！您的修仙化身已成功歸位。");
-                
+                applyLoadedData(loadedData);
             } catch (err) {
-                alert("❌ 讀取 JSON 檔案時發生錯誤，檔案可能已損壞！錯誤：" + err.message);
+                showToast("❌ 讀取失敗：" + err.message, true);
             }
         };
         reader.onerror = function() {
-            inputElement.value = "";
-            alert("❌ 無法讀取檔案，請確認檔案未損壞。");
+            showToast("❌ 檔案讀取失敗，請再試一次", true);
         };
-        reader.readAsText(file);
+        // iOS 需要用 Blob 讀，不能直接傳 file
+        reader.readAsText(fileBlob);
     }
 
     function mainGameLoop() { if(player.heroClass !== "未選擇") { updateGame(); drawGame(); } requestAnimationFrame(mainGameLoop); }
+    updateImportBtnState();
     mainGameLoop();
 </script>
 
