@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>鎖妖荒塚：御劍伏魔傳奇 v7.0 乾坤存檔與防禦仙甲版</title>
+    <style>
+        :root {
+            --bg-color: #050508;
+            --panel-bg: #12141c;
+            --panel-light: #1a1d28;
+            --text-color: #d4af37;
+            --text-light: #d1d5db;
+            --health-color: #a30000;
+            --mana-color: #0055a3;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            font-family: 'Cinzel', 'Palatino', 'Georgia', Microsoft JhengHei, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 1350px;
+            background-color: var(--panel-bg);
+            border: 2px solid #5c4033;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 0 40px rgba(0,0,0,1);
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            position: relative;
+        }
+
+        @media (min-width: 1100px) {
+            #game-container {
+                grid-template-columns: 1fr 420px;
+            }
+        }
+
+        .view-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            width: 100%;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            background-color: #000;
+            border: 2px solid #3a2e2b;
+            box-shadow: inset 0 0 30px #000;
+            aspect-ratio: 4/3;
+            cursor: crosshair;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #090a0f;
+            border: 1px solid #3a2e2b;
+            padding: 15px;
+        }
+
+        .status-header h2 {
+            color: var(--text-color);
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            text-align: center;
+            border-bottom: 2px solid #5c4033;
+            padding-bottom: 5px;
+            letter-spacing: 2px;
+        }
+
+        .bar-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .bar {
+            flex: 1;
+            height: 24px;
+            background: #111;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #444;
+        }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.05s; }
+        #hp-fill { background: linear-gradient(to bottom, #d60000, #730000); }
+        #mp-fill { background: linear-gradient(to bottom, #0088ff, #004488); }
+        .bar-text {
+            position: absolute; width: 100%; text-align: center;
+            font-size: 11px; line-height: 22px; color: #fff; font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* 100格修仙乾坤袋滾動條設計 */
+        .inventory-box {
+            background: #050508;
+            border: 1px solid #3a2e2b;
+            height: 200px;
+            overflow-y: scroll;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .inventory-box::-webkit-scrollbar, .log-box::-webkit-scrollbar, .npc-scroll-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .inventory-box::-webkit-scrollbar-thumb, .log-box::-webkit-scrollbar-thumb, .npc-scroll-list::-webkit-scrollbar-thumb {
+            background: #443322;
+            border-radius: 4px;
+        }
+        .inventory-box::-webkit-scrollbar-thumb:hover, .log-box::-webkit-scrollbar-thumb:hover, .npc-scroll-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-color);
+        }
+
+        .inventory-slot {
+            background: #11131a;
+            border: 1px solid #252936;
+            padding: 8px 10px;
+            font-size: 12px;
+            text-align: left;
+            color: #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .inventory-slot:hover {
+            border-color: var(--text-color);
+            background: #181c26;
+        }
+        .inventory-slot.equipped {
+            border-color: #00ffcc;
+            color: #00ffcc;
+            background: #0c2424;
+            font-weight: bold;
+            box-shadow: inset 0 0 8px rgba(0,255,200,0.2);
+        }
+
+        .scroll-hotbar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .scroll-slot {
+            background: #151821;
+            border: 1px solid #443322;
+            padding: 5px;
+            text-align: center;
+            font-size: 11px;
+            cursor: pointer;
+            position: relative;
+            border-radius: 3px;
+        }
+        .scroll-slot:hover {
+            border-color: var(--text-color);
+            background: #202533;
+        }
+        .scroll-slot.active {
+            border-color: #00a8ff;
+            box-shadow: 0 0 8px rgba(0, 168, 255, 0.5);
+        }
+        .scroll-count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            color: #00ffcc;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .hotkey-tag {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            color: #666;
+            font-size: 9px;
+        }
+
+        button {
+            background: linear-gradient(#2a1e17, #0f0b08);
+            color: #d1c2a5;
+            border: 1px solid #5c4033;
+            padding: 9px;
+            margin: 2px 0;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        button:hover {
+            border-color: var(--text-color);
+            color: #fff;
+            background: linear-gradient(#3e2d22, #18110d);
+        }
+
+        /* 存檔專用區塊編排 */
+        .save-manager-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            background: #0d0f14;
+            border: 1px solid #2d251e;
+            padding: 6px;
+            border-radius: 3px;
+        }
+
+        .log-box {
+            background: #020203;
+            border: 1px solid #222;
+            height: 105px;
+            overflow-y: auto;
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #8a8a8a;
+            line-height: 1.4;
+        }
+        .log-loot { color: #d4af37; font-weight: bold; }
+        .log-combat { color: #ff4d4d; }
+        .log-spell { color: #00a8ff; font-weight: bold; }
+        .log-system { color: #52b788; }
+        .log-unique { color: #af47ff; font-weight: bold; }
+
+        .control-tips {
+            font-size: 11px;
+            color: #777;
+            background: #050608;
+            padding: 8px;
+            border: 1px solid #1a1a1a;
+            line-height: 1.4;
+        }
+
+        /* 全自訂網頁滑鼠互動式對話窗 UI */
+        .npc-dialog-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .npc-dialog-box {
+            background: #0f111a;
+            border: 2px solid var(--text-color);
+            border-radius: 5px;
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+        }
+        .npc-title {
+            font-size: 18px;
+            color: var(--text-color);
+            font-weight: bold;
+            border-bottom: 1px solid #3a2e2b;
+            padding-bottom: 8px;
+            margin: 0;
+        }
+        .npc-content {
+            font-size: 13px;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
+        .npc-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .npc-option-btn {
+            text-align: left;
+            padding: 10px;
+            font-size: 13px;
+            background: #1a1d29;
+            border: 1px solid #443322;
+        }
+        .npc-option-btn:hover {
+            background: #252b3d;
+            border-color: #00a8ff;
+        }
+        .npc-scroll-list {
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid #222;
+            padding: 5px;
+            background: #050609;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="view-panel">
+        <div style="display: flex; justify-content: space-between; color: var(--text-color); font-weight: bold; font-size: 14px; text-transform: uppercase;">
+            <span id="map-title">📍 落霞村</span>
+            <span id="floor-indicator">🗺️ 繁華村落</span>
+        </div>
+        
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="gameCanvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="control-tips">
+            <strong>🖱️ 全滑鼠修仙控制：</strong> 左鍵點擊/長按引導走位，直接點選怪物進入御劍拉打。右鍵或快捷鍵 1~4 釋放對應卷軸法術。<br>
+            <strong>🛡️ 護體御劍公式：</strong> 總防禦力將提供等比百分比減傷（<code>實際傷害 = 基礎傷害 * (100 / (100 + 防禦))</code>），防禦越高，減傷越顯著！
+        </div>
+    </div>
+
+    <div class="side-panel">
+        <div class="status-header">
+            <h2>🧝‍♂️ 修仙主體</h2>
+            <div style="font-size: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px;">
+                <div>境界: <span id="char-level" style="color:#66fcf1;">練氣期</span></div>
+                <div>靈石: <span id="char-gold" style="color:#f1c40f;">200</span> 兩</div>
+                <div>未鑑定古物: 📦 <span id="char-bag" style="color:#af47ff;">0</span> 件</div>
+                <div>當前層數: <span id="char-floor" style="color:#ff4d4d;">地表</span></div>
+            </div>
+            
+            <div class="bar-container">
+                <div class="bar"><div id="hp-fill" class="bar-fill"></div><div id="bar-hp-text" class="bar-text">120/120 HP</div></div>
+                <div class="bar"><div id="mp-fill" class="bar-fill"></div><div id="bar-mp-text" class="bar-text">60/60 MP</div></div>
+            </div>
+            <div style="margin: 5px 0 0 0; font-size:12px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; line-height: 1.4;">
+                <div><strong style="color: var(--text-color);">⚔️ 疊加額外攻擊：</strong> <span id="char-total-atk" style="color:#ff4d4d; font-weight:bold;">+0</span></div>
+                <div><strong style="color: var(--text-color);">🛡️ 總體防禦屬性：</strong> <span id="char-total-def" style="color:#00ffcc; font-weight:bold;">5</span></div>
+                <div style="grid-column: span 2;"><strong style="color: var(--text-color);">🎒 已配戴法寶件數：</strong> <span id="char-equip-count" style="color:#e0aaff; font-weight:bold;">1 / 10</span></div>
+            </div>
+        </div>
+
+        <div>
+            <h3 style="margin: 0 0 4px 0; font-size: 12px; color: var(--text-color);">🎒 百寶乾坤行囊 (100格容量 / 點擊裝備或卸下)</h3>
+            <div class="inventory-box" id="inventory-box">
+                </div>
+        </div>
+
+        <div>
+            <h3 style="margin: 0 0 4px 0; font-size: 12px; color: var(--text-color);">📜 應急法術卷軸 (快捷列)</h3>
+            <div class="scroll-hotbar">
+                <div class="scroll-slot active" id="slot-portal" onclick="selectScroll('portal')">
+                    <span class="hotkey-tag">1</span>🌀<br>傳送門
+                    <span class="scroll-count" id="count-portal">1</span>
+                </div>
+                <div class="scroll-slot" id="slot-lightning" onclick="selectScroll('lightning')">
+                    <span class="hotkey-tag">2</span>⚡<br>連環雷
+                    <span class="scroll-count" id="count-lightning">2</span>
+                </div>
+                <div class="scroll-slot" id="slot-blizzard" onclick="selectScroll('blizzard')">
+                    <span class="hotkey-tag">3</span>❄️<br>暴風雪
+                    <span class="scroll-count" id="count-blizzard">1</span>
+                </div>
+                <div class="scroll-slot" id="slot-healing" onclick="selectScroll('healing')">
+                    <span class="hotkey-tag">4</span>🩹<br>回春術
+                    <span class="scroll-count" id="count-healing">2</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="town-menu">
+            <h3 style="margin: 3px 0; font-size: 13px; color: var(--text-color);">⛩️ 村落設施</h3>
+            <button onclick="openNPCDialog('temple')" style="width:100%;">⛩️ 土地廟祝 (祈福治癒 / 購置卷軸)</button>
+            <button onclick="openNPCDialog('blacksmith')" style="width:100%;">⚒️ 鐵匠阿海 (裝備重鑄 / 專屬買賣系統)</button>
+            <button onclick="openNPCDialog('witch')" style="width:100%;">🔮 盲眼神婆 (暗金古物開光鑑定)</button>
+        </div>
+
+        <div id="portal-menu" style="display:none;">
+            <h3 style="margin: 3px 0; font-size: 13px; color: #00a8ff;">🌀 秘術時空裂隙</h3>
+            <button onclick="enterActivePortal()" style="border-color:#0055a3; background: linear-gradient(#0c1a30, #050b14); width:100%;">踏入傳送門 (返回深淵切入點)</button>
+        </div>
+
+        <div>
+            <h3 style="margin: 0 0 4px 0; font-size: 12px; color: var(--text-color);">💾 乾坤修仙錄 (存檔管理)</h3>
+            <div class="save-manager-box">
+                <button onclick="exportGameSave()" style="margin:0; font-size:12px; padding:6px;">📤 導出 JSON 存檔</button>
+                <button onclick="triggerImportSelector()" style="margin:0; font-size:12px; padding:6px;">📥 導入 JSON 存檔</button>
+                <input type="file" id="importFileSelector" accept=".json" style="display: none;" onchange="importGameSave(event)">
+            </div>
+        </div>
+
+        <div>
+            <div id="log" class="log-box"></div>
+        </div>
+    </div>
+
+    <div class="npc-dialog-overlay" id="npcDialogOverlay">
+        <div class="npc-dialog-box">
+            <p class="npc-title" id="npcDialogTitle">NPC 對話</p>
+            <div class="npc-content" id="npcDialogContent">對話內容</div>
+            <div class="npc-options" id="npcDialogOptions">
+                </div>
+            <button onclick="closeNPCDialog()" style="background: #221111; border-color: #552222; color: #ffaaaa; margin-top: 5px;">❌ 關閉對話</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const container = document.getElementById("canvasContainer");
+
+    // --- 遊戲底層數據與多重裝備結構 ---
+    const player = {
+        x: 320, y: 380, 
+        targetX: 320, targetY: 380, 
+        isMovingToTarget: false,
+        speed: 3.8, 
+        size: 14,
+        level: 1, hp: 120, maxHp: 120, mp: 60, maxMp: 60, gold: 200,
+        baseDef: 5, // 基礎防禦力
+        unidentifiedCount: 0, blessing: false,
+        
+        // 行囊改為 100格 長度 (新增防禦屬性 defBonus)
+        inventory: Array.from({ length: 100 }, (_, i) => i === 0 ? { name: "凡鐵木劍 🪵", atkBonus: 5, defBonus: 2, equipped: true } : null),
+        
+        scrolls: { portal: 1, lightning: 2, blizzard: 1, healing: 2 }
+    };
+
+    let currentMap = "town"; 
+    let caveFloor = 0;
+    let grid = [];
+    let exploredGrid = []; 
+    const tileSize = 40; 
+    const mapWidth = 16;
+    const mapHeight = 12; 
+
+    let monsters = [];
+    let flyingSwords = []; 
+    let entities = []; 
+    let selectedScrollType = "portal"; 
+    let selectedMonster = null; 
+    let clickMarker = { x: 0, y: 0, timer: 0 }; 
+
+    let activePortal = null; 
+    let globalAttackTimer = 0;
+    let transitionCooldown = 0;
+    let portalAnimTick = 0; 
+
+    const npcs = {
+        templeKeeper: { x: 320, y: 160, emoji: "👴", name: "廟祝" },
+        blacksmith: { x: 120, y: 160, emoji: "⚒️", name: "鐵匠" },
+        witch: { x: 520, y: 160, emoji: "🔮", name: "神婆" }
+    };
+
+    const prefixes = ["純陽太乙", "玄冰破壞", "喋血狂暴", "寂滅天劫", "不朽至尊", "末日祖父", "九幽玄甲", "太極金剛"];
+    const baseWeapons = ["斬妖神劍 🗡️", "飛仙重劍 ⚔️", "八卦法鏡 🪞", "護身神盾 🛡️", "玄鐵戰甲 🥋", "誅仙古劍 🗡️"];
+    const monsterEmojis = ["👹", "👻", "🕷️", "🐍", "🦇", "💀"];
+    const monsterNames = ["墮落伏魔衛", "含冤厲鬼", "織網死蛛", "劇毒蝰蛇", "冥界飛蝠", "骷髏復生者"];
+    const bossTitles = ["【快速·多重】", "【幽靈擊·狂暴】", "•【石膚·吸血】", "【法力燃燒】"];
+
+    let isMouseDown = false;
+
+    window.addEventListener("contextmenu", e => e.preventDefault());
+    container.addEventListener("mousedown", handleMouseDown);
+    container.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", () => isMouseDown = false);
+
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * (canvas.width / rect.width),
+            y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+
+    function handleMouseDown(e) {
+        if (document.getElementById("npcDialogOverlay").style.display === "flex") return; 
+        const pos = getMousePos(e);
+        if (e.button === 0) { 
+            isMouseDown = true;
+            selectedMonster = null;
+
+            monsters.forEach(m => {
+                let mgx = Math.floor(m.x / tileSize);
+                let mgy = Math.floor(m.y / tileSize);
+                if (exploredGrid[mgy] && exploredGrid[mgy][mgx] === "visible") {
+                    if (Math.hypot(pos.x - m.x, pos.y - m.y) < 22) {
+                        selectedMonster = m;
+                    }
+                }
+            });
+
+            if (selectedMonster) {
+                addLog(`🎯 鎖定妖邪：${selectedMonster.name}，自動發動御劍拉打！`, "combat");
+            } else {
+                player.targetX = pos.x; player.targetY = pos.y;
+                player.isMovingToTarget = true;
+                clickMarker.x = pos.x; clickMarker.y = pos.y; clickMarker.timer = 12;
+            }
+        } 
+        else if (e.button === 2) { 
+            castScrollSpell(selectedScrollType, pos.x, pos.y);
+        }
+    }
+
+    function handleMouseMove(e) {
+        if (document.getElementById("npcDialogOverlay").style.display === "flex") return;
+        if (!isMouseDown || selectedMonster) return;
+        const pos = getMousePos(e);
+        player.targetX = pos.x; player.targetY = pos.y;
+        player.isMovingToTarget = true;
+    }
+
+    // 鍵盤數字快捷鍵切換
+    window.addEventListener("keydown", e => {
+        if (e.key === "1") { selectScroll('portal'); useActiveScrollAtPlayer(); }
+        if (e.key === "2") { selectScroll('lightning'); useActiveScrollAtPlayer(); }
+        if (e.key === "3") { selectScroll('blizzard'); useActiveScrollAtPlayer(); }
+        if (e.key === "4") { selectScroll('healing'); useActiveScrollAtPlayer(); }
+    });
+
+    function selectScroll(type) {
+        selectedScrollType = type;
+        document.querySelectorAll(".scroll-slot").forEach(s => s.classList.remove("active"));
+        document.getElementById(`slot-${type}`).classList.add("active");
+    }
+
+    function useActiveScrollAtPlayer() {
+        let tx = player.x; let ty = player.y;
+        if (selectedMonster) { tx = selectedMonster.x; ty = selectedMonster.y; }
+        castScrollSpell(selectedScrollType, tx, ty);
+    }
+
+    // --- 計算目前配戴狀態與總額外加成 (攻擊、防禦) ---
+    function getEquippedStats() {
+        let count = 0;
+        let totalAtk = 0;
+        let totalDef = player.baseDef;
+        player.inventory.forEach(item => {
+            if (item && item.equipped) {
+                count++;
+                totalAtk += (item.atkBonus || 0);
+                totalDef += (item.defBonus || 0);
+            }
+        });
+        return { count, totalAtk, totalDef };
+    }
+
+    // --- 動態渲染 100格乾坤袋介面 ---
+    function renderInventoryUI() {
+        const box = document.getElementById("inventory-box");
+        box.innerHTML = "";
+        
+        let stats = getEquippedStats();
+        document.getElementById("char-equip-count").innerText = `${stats.count} / 10`;
+        document.getElementById("char-total-atk").innerText = `+${stats.totalAtk}`;
+        document.getElementById("char-total-def").innerText = `${stats.totalDef}`;
+
+        player.inventory.forEach((item, index) => {
+            const slot = document.createElement("div");
+            slot.className = "inventory-slot";
+            
+            if (item) {
+                let dBonus = item.defBonus !== undefined ? item.defBonus : 0;
+                let textStr = `[${index+1}] ${item.name} (攻+${item.atkBonus} 防+${dBonus})`;
+                if (item.equipped) {
+                    slot.className += " equipped";
+                    slot.innerHTML = `<span>${textStr}</span> <span style='color:#00ffcc;'> (裝備)</span>`;
+                } else {
+                    slot.innerHTML = `<span>${textStr}</span>`;
+                }
+                slot.onclick = () => toggleEquipItem(index);
+            } else {
+                slot.innerHTML = `<span style="color:#555;">[${index+1}] 虛無空位</span>`;
+            }
+            box.appendChild(slot);
+        });
+    }
+
+    // --- 切換裝備狀態 (最多同時穿 10 樣物品) ---
+    function toggleEquipItem(index) {
+        let item = player.inventory[index];
+        if (!item) return;
+
+        if (item.equipped) {
+            item.equipped = false;
+            addLog(`卸下法寶：【${item.name}】。`, "system");
+        } else {
+            let stats = getEquippedStats();
+            if (stats.count >= 10) {
+                addLog(`⚠️ 配戴失敗：全身氣脈有限，最多同時裝備 10 件法寶！`, "system");
+                return;
+            }
+            item.equipped = true;
+            addLog(`⚔️ 成功配戴：【${item.name}】，獲得攻防屬性增幅！`, "system");
+        }
+        renderInventoryUI();
+    }
+
+    function addToInventory(item) {
+        for (let i = 0; i < 100; i++) {
+            if (!player.inventory[i]) {
+                player.inventory[i] = item;
+                renderInventoryUI();
+                return true;
+            }
+        }
+        return false; 
+    }
+
+    // --- 本地端 JSON 存盤匯入/匯出控制 ---
+    function exportGameSave() {
+        const saveData = {
+            level: player.level,
+            hp: player.hp,
+            maxHp: player.maxHp,
+            mp: player.mp,
+            maxMp: player.maxMp,
+            gold: player.gold,
+            baseDef: player.baseDef,
+            unidentifiedCount: player.unidentifiedCount,
+            blessing: player.blessing,
+            inventory: player.inventory,
+            scrolls: player.scrolls,
+            caveFloor: caveFloor,
+            currentMap: currentMap,
+            activePortal: activePortal
+        };
+
+        const jsonStr = JSON.stringify(saveData, null, 4);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const downloadAnchor = document.createElement("a");
+        downloadAnchor.href = url;
+        downloadAnchor.download = `修仙錄_第${caveFloor}層_${Date.now()}.json`;
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+        URL.revokeObjectURL(url);
+        
+        addLog("📤 成功導出 JSON 乾坤修仙存檔檔案至本地端！", "system");
+    }
+
+    function triggerImportSelector() {
+        document.getElementById("importFileSelector").click();
+    }
+
+    function importGameSave(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // 資料安全寫入
+                if (data.level !== undefined) player.level = data.level;
+                if (data.hp !== undefined) player.hp = data.hp;
+                if (data.maxHp !== undefined) player.maxHp = data.maxHp;
+                if (data.mp !== undefined) player.mp = data.mp;
+                if (data.maxMp !== undefined) player.maxMp = data.maxMp;
+                if (data.gold !== undefined) player.gold = data.gold;
+                if (data.baseDef !== undefined) player.baseDef = data.baseDef;
+                if (data.unidentifiedCount !== undefined) player.unidentifiedCount = data.unidentifiedCount;
+                if (data.blessing !== undefined) player.blessing = data.blessing;
+                if (data.inventory !== undefined) player.inventory = data.inventory;
+                if (data.scrolls !== undefined) player.scrolls = data.scrolls;
+                if (data.activePortal !== undefined) activePortal = data.activePortal;
+                
+                let targetMap = data.currentMap || "town";
+                caveFloor = data.caveFloor || 0;
+                
+                // 重初始化地圖與介面
+                initMap(targetMap, targetMap === "cave" ? "portal" : "standard");
+                renderInventoryUI();
+                
+                // 刷新卷軸計數
+                document.querySelectorAll(".scroll-hotbar .scroll-count").forEach(el => {
+                    let id = el.id.split('-')[1]; el.innerText = player.scrolls[id] || 0;
+                });
+
+                addLog("📥 乾坤修仙錄讀取成功！仙緣已無縫載入完成。", "unique");
+            } catch (err) {
+                addLog("❌ 讀取失敗：存檔 JSON 檔案格式毀損或不相容！", "system");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ""; // 清空選取器
+    }
+
+    // --- 經典副本與地圖處理 ---
+    function initMap(mapType, entryType = "standard") {
+        grid = []; exploredGrid = []; entities = []; flyingSwords = [];
+        selectedMonster = null; player.isMovingToTarget = false;
+
+        for (let y = 0; y < mapHeight; y++) {
+            grid[y] = []; exploredGrid[y] = [];
+            for (let x = 0; x < mapWidth; x++) {
+                grid[y][x] = (x === 0 || x === mapWidth - 1 || y === 0 || y === mapHeight - 1) ? "🧱" : "⬛";
+                exploredGrid[y][x] = false;
+            }
+        }
+
+        if (mapType === "town") {
+            currentMap = "town"; caveFloor = 0;
+            grid[3][7] = "⬛"; grid[1][7] = "🪜"; 
+            if (activePortal) {
+                entities.push({ x: 320, y: 260, type: "town_portal", emoji: "🌀", name: "時空傳送門" });
+            }
+            player.x = 320; player.y = 350;
+            player.targetX = 320; player.targetY = 350;
+            monsters = [];
+            for (let y=0; y<mapHeight; y++) for(let x=0; x<mapWidth; x++) exploredGrid[y][x] = true;
+
+            document.getElementById("map-title").innerText = "📍 落霞村 (整備安全區)";
+            document.getElementById("floor-indicator").innerText = "🗺️ 繁華村落";
+            document.getElementById("char-floor").innerText = "地表";
+            document.getElementById("town-menu").style.display = "block";
+        } 
+        else {
+            currentMap = "cave";
+            for (let y = 2; y < mapHeight - 2; y++) {
+                for (let x = 2; x < mapWidth - 2; x++) {
+                    if (Math.random() < 0.16) grid[y][x] = "🧱";
+                }
+            }
+            let downX = Math.floor(Math.random() * 5) + 10, downY = Math.floor(Math.random() * 4) + 6;
+            grid[downY][downX] = "🪜";
+
+            if (entryType === "portal" && activePortal) {
+                player.x = activePortal.caveX; player.y = activePortal.caveY;
+                entities.push({ x: activePortal.caveX, y: activePortal.caveY, type: "cave_portal", emoji: "🌀", name: "回城傳送門" });
+            } else {
+                player.x = 60; player.y = 60;
+                grid[1][1] = "⬛"; grid[1][2] = "⬛"; grid[2][1] = "⬛";
+            }
+            player.targetX = player.x; player.targetY = player.y;
+
+            for (let i = 0; i < 3; i++) {
+                let rx = Math.floor(Math.random() * (mapWidth - 4)) + 2;
+                let ry = Math.floor(Math.random() * (mapHeight - 4)) + 2;
+                if (grid[ry][rx] === "⬛") {
+                    let type = Math.random() > 0.4 ? "chest" : "shrine";
+                    entities.push({ x: rx*tileSize+20, y: ry*tileSize+20, type: type, emoji: type==="chest"?"📦":"🪦", name: type==="chest"?"古老寶箱":"神秘神壇", used: false });
+                }
+            }
+
+            document.getElementById("map-title").innerText = `⚔️ 鎖妖荒塚 - 第 ${caveFloor} 層`;
+            document.getElementById("floor-indicator").innerText = `💀 闇黑地下城`;
+            document.getElementById("char-floor").innerText = `地下第 ${caveFloor} 層`;
+            document.getElementById("town-menu").style.display = "none";
+
+            spawnCaveMonsters();
+        }
+    }
+
+    function spawnCaveMonsters() {
+        monsters = [];
+        let count = 4 + caveFloor; 
+        for (let i = 0; i < count; i++) {
+            let mx, my;
+            do {
+                mx = Math.floor(Math.random() * (mapWidth - 3)) + 2;
+                my = Math.floor(Math.random() * (mapHeight - 3)) + 2;
+            } while (grid[my][mx] !== "⬛" || Math.hypot(mx*tileSize - player.x, my*tileSize - player.y) < 130);
+
+            let typeIndex = Math.floor(Math.random() * monsterEmojis.length);
+            monsters.push({
+                x: mx * tileSize + 20, y: my * tileSize + 20,
+                emoji: monsterEmojis[typeIndex], name: monsterNames[typeIndex],
+                hp: 35 + caveFloor * 20, maxHp: 35 + caveFloor * 20,
+                atk: 8 + caveFloor * 3, speed: 0.7 + Math.random() * 0.4, 
+                vx: 0, vy: 0, isBoss: false, freezeTimer: 0
+            });
+        }
+
+        if (monsters.length > 0) {
+            let b = monsters[0];
+            let title = bossTitles[Math.floor(Math.random() * bossTitles.length)];
+            b.isBoss = true; b.name = title + " " + b.name + "·👑";
+            b.hp *= 3.0; b.maxHp *= 3.0; b.atk *= 1.4; b.speed = 1.1; 
+        }
+    }
+
+    function getGridCell(px, py) {
+        let gx = Math.floor(px / tileSize); let gy = Math.floor(py / tileSize);
+        if (gx < 0 || gx >= mapWidth || gy < 0 || gy >= mapHeight) return "🧱";
+        return grid[gy][gx];
+    }
+
+    function castScrollSpell(type, targetX, targetY) {
+        if (player.scrolls[type] <= 0) return;
+
+        if (type === "portal") {
+            if (currentMap !== "cave") return;
+            player.scrolls.portal--;
+            activePortal = { floor: caveFloor, caveX: player.x, caveY: player.y };
+            entities.push({ x: player.x, y: player.y, type: "cave_portal", emoji: "🌀", name: "回城傳送門" });
+            addLog("🌀 一道返回落霞村的藍色時空裂隙徐徐展開！", "spell");
+        } 
+        else if (type === "lightning") {
+            if (currentMap !== "cave") return;
+            player.scrolls.lightning--;
+            addLog("⚡ 釋放連環狂雷在地下城長廊中彈跳！", "spell");
+            let hitCount = 0;
+            monsters.forEach(m => {
+                let mgx = Math.floor(m.x / tileSize); let mgy = Math.floor(m.y / tileSize);
+                if (exploredGrid[mgy] && exploredGrid[mgy][mgx] === "visible" && hitCount < 3) {
+                    let dmg = Math.floor(35 + Math.random() * 25 + caveFloor * 5);
+                    m.hp -= dmg; m.x += (Math.random() - 0.5) * 20; m.y += (Math.random() - 0.5) * 20;
+                    addLog(` ⚡ 轟擊【${m.name}】，造成 ${dmg} 點雷電傷害！`, "combat");
+                    if (m.hp <= 0) handleMonsterDeath(m);
+                    hitCount++;
+                }
+            });
+        } 
+        else if (type === "blizzard") {
+            if (currentMap !== "cave") return;
+            player.scrolls.blizzard--;
+            addLog("❄️ 極寒冰流席捲整層深淵，萬物凍結！", "spell");
+            monsters.forEach(m => m.freezeTimer = 210);
+        } 
+        else if (type === "healing") {
+            player.scrolls.healing--;
+            player.hp = Math.min(player.maxHp, player.hp + 70);
+            addLog(`🩹 回春術落下，恢復 70 點生命值！`, "spell");
+        }
+        document.getElementById(`count-${type}`).innerText = player.scrolls[type];
+    }
+
+    function updateGame() {
+        if (transitionCooldown > 0) transitionCooldown--;
+        if (clickMarker.timer > 0) clickMarker.timer--;
+        portalAnimTick++;
+
+        if (player.isMovingToTarget) {
+            let dist = Math.hypot(player.targetX - player.x, player.targetY - player.y);
+            if (dist > 5) {
+                let angle = Math.atan2(player.targetY - player.y, player.targetX - player.x);
+                let dx = Math.cos(angle) * player.speed; let dy = Math.sin(angle) * player.speed;
+                if (getGridCell(player.x + dx, player.y) !== "🧱") player.x += dx;
+                if (getGridCell(player.x, player.y + dy) !== "🧱") player.y += dy;
+            } else { player.isMovingToTarget = false; }
+        }
+
+        if (currentMap !== "town") {
+            let pGridX = Math.floor(player.x / tileSize); let pGridY = Math.floor(player.y / tileSize);
+            for (let y = 0; y < mapHeight; y++) {
+                for (let x = 0; x < mapWidth; x++) {
+                    if (Math.hypot(x - pGridX, y - pGridY) <= 3.2) exploredGrid[y][x] = "visible";
+                    else if (exploredGrid[y][x] === "visible") exploredGrid[y][x] = "memorized";
+                }
+            }
+        }
+
+        let currentCell = getGridCell(player.x, player.y);
+        if (transitionCooldown === 0 && currentCell === "🪜") {
+            transitionCooldown = 40; caveFloor++; initMap("cave", "standard");
+            addLog(`🪜 你踏下石階，深入到鎖妖荒塚第 ${caveFloor} 層。`, "system"); return;
+        }
+
+        for (let i = entities.length - 1; i >= 0; i--) {
+            let ent = entities[i];
+            if (Math.hypot(player.x - ent.x, player.y - ent.y) < 22 && !ent.used) {
+                if (ent.type === "chest") {
+                    ent.used = true; ent.emoji = "🔓";
+                    let roll = Math.random();
+                    if (roll < 0.25) player.scrolls.lightning++;
+                    else if (roll < 0.5) player.scrolls.blizzard++;
+                    else if (roll < 0.7) player.scrolls.healing++;
+                    else player.scrolls.portal++;
+                    addLog("📦 打開古老寶箱，獲得應急修仙法術卷軸！", "loot");
+                    document.querySelectorAll(".scroll-hotbar .scroll-count").forEach(el => {
+                        let id = el.id.split('-')[1]; el.innerText = player.scrolls[id];
+                    });
+                } 
+                else if (ent.type === "shrine") {
+                    ent.used = true; ent.emoji = "❌";
+                    player.hp = player.maxHp; player.mp = player.maxMp;
+                    addLog("🪦 觸碰遠古神壇：體內靈泉噴湧，狀態全滿！", "system");
+                }
+                else if (ent.type === "cave_portal" && transitionCooldown === 0) {
+                    transitionCooldown = 40; initMap("town");
+                    addLog("🌀 穿過時空裂隙，你安全返回了落霞村。", "system"); return;
+                }
+                else if (ent.type === "town_portal" && transitionCooldown === 0) {
+                    transitionCooldown = 40; initMap("cave", "portal");
+                    addLog(`🌀 虛空扭曲！你重返鎖妖荒塚第 ${caveFloor} 層。`, "system"); return;
+                }
+            }
+        }
+
+        globalAttackTimer++;
+        if (currentMap === "cave" && globalAttackTimer % 22 === 0) {
+            let attackTarget = null;
+            if (selectedMonster && monsters.includes(selectedMonster)) {
+                let mgx = Math.floor(selectedMonster.x / tileSize); let mgy = Math.floor(selectedMonster.y / tileSize);
+                if (exploredGrid[mgy] && exploredGrid[mgy][mgx] === "visible" && Math.hypot(selectedMonster.x - player.x, selectedMonster.y - player.y) < 200) {
+                    attackTarget = selectedMonster;
+                }
+            }
+            if (!attackTarget) {
+                let minDist = 160;
+                monsters.forEach(m => {
+                    let mgx = Math.floor(m.x / tileSize); let mgy = Math.floor(m.y / tileSize);
+                    if (exploredGrid[mgy] && exploredGrid[mgy][mgx] === "visible") {
+                        let d = Math.hypot(m.x - player.x, m.y - player.y);
+                        if (d < minDist) { minDist = d; attackTarget = m; }
+                    }
+                });
+            }
+            if (attackTarget) flyingSwords.push({ x: player.x, y: player.y, target: attackTarget, speed: 8.0, emoji: "🗡️", life: 45 });
+        }
+
+        for (let i = flyingSwords.length - 1; i >= 0; i--) {
+            let s = flyingSwords[i]; if (!monsters.includes(s.target)) { flyingSwords.splice(i, 1); continue; }
+            let angle = Math.atan2(s.target.y - s.y, s.target.x - s.x);
+            s.x += Math.cos(angle) * s.speed; s.y += Math.sin(angle) * s.speed; s.life--;
+
+            if (Math.hypot(s.target.x - s.x, s.target.y - s.y) < 18 || s.life <= 0) {
+                if (Math.hypot(s.target.x - s.x, s.target.y - s.y) < 18) {
+                    let stats = getEquippedStats();
+                    let baseDmg = 12 + player.level * 2 + stats.totalAtk;
+                    let finalDmg = Math.floor(baseDmg * (0.85 + Math.random() * 0.3));
+                    s.target.hp -= finalDmg; s.target.x += Math.cos(angle) * 11; s.target.y += Math.sin(angle) * 11;
+                    if (s.target.hp <= 0) handleMonsterDeath(s.target);
+                }
+                flyingSwords.splice(i, 1);
+            }
+        }
+
+        monsters.forEach(m => {
+            if (m.freezeTimer > 0) { m.freezeTimer--; return; }
+            let mgx = Math.floor(m.x / tileSize); let mgy = Math.floor(m.y / tileSize);
+            if (Math.hypot(player.x - m.x, player.y - m.y) < 220 || (exploredGrid[mgy] && exploredGrid[mgy][mgx] === "visible")) {
+                if (Math.random() < 0.06) {
+                    let angleToP = Math.atan2(player.y - m.y, player.x - m.x);
+                    m.vx = Math.cos(angleToP) * m.speed; m.vy = Math.sin(angleToP) * m.speed;
+                }
+                if (getGridCell(m.x + m.vx, m.y) !== "🧱") m.x += m.vx; else m.vx *= -1;
+                if (getGridCell(m.x, m.y + m.vy) !== "🧱") m.y += m.vy; else m.vy *= -1;
+                if (Math.hypot(player.x - m.x, player.y - m.y) < 22) {
+                    // 防禦力減傷機制實裝
+                    let stats = getEquippedStats();
+                    let rawDmg = m.atk * 0.04;
+                    let mitigatedDmg = rawDmg * (100 / (100 + stats.totalDef));
+                    player.hp -= mitigatedDmg; 
+                    if (player.hp <= 0) handlePlayerDeath();
+                }
+            }
+        });
+    }
+
+    function handleMonsterDeath(m) {
+        let idx = monsters.indexOf(m); if (idx === -1) return;
+        let goldLoot = Math.floor(Math.random() * 15) + caveFloor * 4 + 10;
+        player.gold += goldLoot;
+
+        if (m.isBoss) {
+            player.unidentifiedCount++; player.gold += (120 + caveFloor * 40);
+            addLog(`👑 擊殺首領！爆出【未鑑定古物📦】與大量靈石！`, "unique");
+        } else {
+            addLog(`💥 擊殺【${m.name}】，獲得靈石 ${goldLoot} 兩。`, "combat");
+            if (Math.random() < 0.25) {
+                player.unidentifiedCount++;
+                addLog("📦 發現了一件未鑑定的混沌遺物！請找城鎮神婆鑑定。", "loot");
+            }
+        }
+        if (selectedMonster === m) selectedMonster = null;
+        monsters.splice(idx, 1);
+    }
+
+    function drawGame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < mapHeight; y++) {
+            for (let x = 0; x < mapWidth; x++) {
+                let visState = exploredGrid[y][x]; let cx = x * tileSize + 20; let cy = y * tileSize + 20;
+                if (!visState) { ctx.fillStyle = "#000000"; ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize); continue; }
+                if (visState === "memorized") {
+                    ctx.fillStyle = "#07080c"; ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                    let cell = grid[y][x];
+                    if (cell === "🧱") { ctx.font = "24px sans-serif"; ctx.fillStyle = "#1c1c1c"; ctx.fillText("🧱", cx, cy); }
+                    continue;
+                }
+                ctx.fillStyle = "#14100e"; ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                let cell = grid[y][x];
+                if (cell === "🧱") { ctx.font = "28px sans-serif"; ctx.fillText("🧱", cx, cy); }
+                else if (cell === "🪜") { ctx.font = "28px sans-serif"; ctx.fillText("🪜", cx, cy); }
+            }
+        }
+
+        if (currentMap === "town") {
+            for (let key in npcs) {
+                let npc = npcs[key]; ctx.font = "26px sans-serif"; ctx.fillText(npc.emoji, npc.x, npc.y);
+                ctx.font = "11px sans-serif"; ctx.fillStyle = "#a89068"; ctx.fillText(npc.name, npc.x, npc.y - 20);
+            }
+        }
+
+        entities.forEach(ent => {
+            let egx = Math.floor(ent.x / tileSize); let egy = Math.floor(ent.y / tileSize);
+            if (exploredGrid[egy] && exploredGrid[egy][egx] === "visible") {
+                if (ent.type === "town_portal" && currentMap === "town") {
+                    ctx.save();
+                    ctx.strokeStyle = "rgba(0, 168, 255, 0.8)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    let dynamicRadius = 22 + Math.sin(portalAnimTick * 0.08) * 3;
+                    ctx.arc(ent.x, ent.y, dynamicRadius, 0, Math.PI * 2); ctx.stroke();
+                    ctx.font = "10px Microsoft JhengHei"; ctx.fillStyle = "#ff4d4d";
+                    ctx.fillText("⚠️會回戰場", ent.x, ent.y + 26);
+                    ctx.restore();
+                }
+                ctx.font = "26px sans-serif"; ctx.fillText(ent.emoji, ent.x, ent.y);
+                ctx.font = "10px sans-serif"; ctx.fillStyle = ent.type.includes("portal")?"#4ca6ff":"#888";
+                ctx.fillText(ent.name, ent.x, ent.y - 18);
+            }
+        });
+
+        if (clickMarker.timer > 0) {
+            ctx.strokeStyle = `rgba(0, 255, 100, ${clickMarker.timer / 12})`; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(clickMarker.x, clickMarker.y, 14 - clickMarker.timer, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        monsters.forEach(m => {
+            let mgx = Math.floor(m.x / tileSize); let mgy = Math.floor(m.y / tileSize);
+            if (exploredGrid[mgy] && exploredGrid[mgy][mgx] === "visible") {
+                ctx.font = m.isBoss ? "32px sans-serif" : "27px sans-serif"; ctx.fillText(m.emoji, m.x, m.y);
+                if (m.freezeTimer > 0) {
+                    ctx.fillStyle = "rgba(0, 160, 255, 0.35)"; ctx.beginPath(); ctx.arc(m.x, m.y, 16, 0, Math.PI*2); ctx.fill();
+                }
+                if (selectedMonster === m) { ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 1.5; ctx.strokeRect(m.x - 16, m.y - 16, 32, 32); }
+                let barW = m.isBoss ? 42 : 26;
+                ctx.fillStyle = "#111"; ctx.fillRect(m.x - barW/2, m.y - 22, barW, 4);
+                ctx.fillStyle = m.isBoss ? "#af47ff" : "#a30000"; ctx.fillRect(m.x - barW/2, m.y - 22, (m.hp / m.maxHp) * barW, 4);
+            }
+        });
+
+        flyingSwords.forEach(s => { ctx.font = "20px sans-serif"; ctx.fillText(s.emoji, s.x, s.y); });
+        ctx.font = "30px sans-serif"; ctx.fillText(player.blessing ? "👑" : "🧝‍♂️", player.x, player.y);
+
+        // 同步側邊數據
+        document.getElementById("hp-fill").style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+        document.getElementById("bar-hp-text").innerText = `${Math.ceil(player.hp)}/${player.maxHp} HP`;
+        document.getElementById("mp-fill").style.width = `${Math.max(0, (player.mp / player.maxMp) * 100)}%`;
+        document.getElementById("bar-mp-text").innerText = `${player.mp}/${player.maxMp} MP`;
+        document.getElementById("char-gold").innerText = player.gold;
+        document.getElementById("char-bag").innerText = player.unidentifiedCount;
+        document.getElementById("portal-menu").style.display = (currentMap === "town" && activePortal) ? "block" : "none";
+    }
+
+    // --- 全自訂滑鼠點選互動對話窗引擎 ---
+    function openNPCDialog(npcType) {
+        if (currentMap !== "town") return;
+        const overlay = document.getElementById("npcDialogOverlay");
+        const title = document.getElementById("npcDialogTitle");
+        const content = document.getElementById("npcDialogContent");
+        const options = document.getElementById("npcDialogOptions");
+
+        overlay.style.display = "flex";
+        options.innerHTML = "";
+
+        if (npcType === 'temple') {
+            title.innerText = "⛩️ 土地公廟祝";
+            content.innerText = "「香火裊裊，庇佑眾生。少俠長途跋涉、斬妖除魔辛苦了，需要何種村落資助？」";
+            
+            options.innerHTML = `
+                <button class="npc-option-btn" onclick="executeTempleAction('heal')">1. 🥤 飲用聖泉水 (狀態完全補滿 - 免費)</button>
+                <button class="npc-option-btn" onclick="executeTempleAction('buy_lightning')">2. ⚡ 購置【連環雷卷軸】(花費 40 兩)</button>
+                <button class="npc-option-btn" onclick="executeTempleAction('buy_blizzard')">3. ❄️ 購置【暴風雪卷軸】(花費 50 兩)</button>
+                <button class="npc-option-btn" onclick="executeTempleAction('buy_portal')">4. 🌀 購置【傳送城鎮卷軸】(花費 30 兩)</button>
+            `;
+        }
+        else if (npcType === 'blacksmith') {
+            title.innerText = "⚒️ 鐵匠阿海";
+            content.innerText = "「呼！俺這裡專做裝備重鑄與回收，價格公道！看你要重鑄法寶、整批賣古物，還是要挑選行囊個別販賣？」";
+            
+            let baseHTML = `
+                <button class="npc-option-btn" onclick="executeBlacksmithAction('reforge')">⚒️ 重鑄手頭上配戴裝備 (增幅 攻+5 防+2 / 花費 120 兩)</button>
+                <button class="npc-option-btn" onclick="executeBlacksmithAction('sell_all_unidentified')">📦 整批收購包袱裡的「未鑑定古物」 (每件回收 35 兩)</button>
+                <div style="font-weight:bold; color:var(--text-color); font-size:12px; margin-top:5px;">💰 個別販賣乾坤袋物品 (滑鼠直選)：</div>
+                <div class="npc-scroll-list">
+            `;
+            
+            let hasItems = false;
+            player.inventory.forEach((item, index) => {
+                if (item) {
+                    hasItems = true;
+                    let val = 25 + ((item.atkBonus || 0) * 2) + ((item.defBonus || 0) * 2);
+                    let equipTag = item.equipped ? " [已裝備]" : "";
+                    baseHTML += `<button class="npc-option-btn" style="font-size:11px; padding:6px;" onclick="executeBlacksmithAction('sell_item', ${index})">❌ 賣出 [第${index+1}格] ${item.name} (${equipTag} 價值: ${val} 兩)</button>`;
+                }
+            });
+
+            if (!hasItems) {
+                baseHTML += `<div style="color:#666; font-size:11px; padding:5px; text-align:center;">目前袋中無任何法寶可賣</div>`;
+            }
+            baseHTML += `</div>`;
+            options.innerHTML = baseHTML;
+        }
+        else if (npcType === 'witch') {
+            title.innerText = "🔮 盲眼神婆";
+            content.innerText = `「天道混沌，唯開光可見真相。目前包袱內未鑑定古物共 ${player.unidentifiedCount} 件。每次開啟法眼需要 50 兩靈石。」`;
+            
+            if (player.unidentifiedCount > 0) {
+                options.innerHTML = `<button class="npc-option-btn" onclick="executeWitchAction('identify')">🔮 消耗 50 兩靈石，為一件古物進行天眼開光</button>`;
+            } else {
+                options.innerHTML = `<div style="color:#ff6666; font-size:12px; text-align:center; padding:10px;">❌ 你包袱中並無任何未鑑定古物。</div>`;
+            }
+        }
+    }
+
+    function closeNPCDialog() {
+        document.getElementById("npcDialogOverlay").style.display = "none";
+    }
+
+    // --- 設施全滑鼠運作邏輯 ---
+    function executeTempleAction(action) {
+        if (action === 'heal') {
+            player.hp = player.maxHp; player.mp = player.maxMp;
+            addLog("🙏 廟祝驅散了你身上的邪念，精氣神已全滿！", "system");
+        } else if (action === 'buy_lightning' && player.gold >= 40) {
+            player.gold -= 40; player.scrolls.lightning++;
+            addLog("⚡ 購置連環雷卷軸成功！", "loot");
+        } else if (action === 'buy_blizzard' && player.gold >= 50) {
+            player.gold -= 50; player.scrolls.blizzard++;
+            addLog("❄️ 購置暴風雪卷軸成功！", "loot");
+        } else if (action === 'buy_portal' && player.gold >= 30) {
+            player.gold -= 30; player.scrolls.portal++;
+            addLog("🌀 購置傳送城鎮卷軸成功！", "loot");
+        } else {
+            addLog("❌ 交易失敗：靈石不足！", "system");
+        }
+        document.querySelectorAll(".scroll-hotbar .scroll-count").forEach(el => {
+            let id = el.id.split('-')[1]; el.innerText = player.scrolls[id];
+        });
+        openNPCDialog('temple'); 
+    }
+
+    function executeBlacksmithAction(action, param) {
+        if (action === 'reforge') {
+            if (player.gold >= 120) {
+                player.gold -= 120;
+                player.inventory.forEach(item => {
+                    if (item && item.equipped) {
+                        item.atkBonus += 5;
+                        item.defBonus = (item.defBonus || 0) + 2;
+                    }
+                });
+                addLog("⚒️ 鐵匠重錘落下！全身配戴中的法寶獲得 攻+5 防+2 的附魔增益！", "loot");
+                renderInventoryUI();
+            } else addLog("❌ 靈石不夠重鑄開爐！", "system");
+            openNPCDialog('blacksmith');
+        }
+        else if (action === 'sell_all_unidentified') {
+            if (player.unidentifiedCount > 0) {
+                let p = player.unidentifiedCount * 35;
+                player.gold += p; player.unidentifiedCount = 0;
+                addLog(`⚒️ 鐵匠整批回收成功，給了你 ${p} 兩靈石。`, "loot");
+            } else addLog("❌ 身上沒有未鑑定古物可賣。", "system");
+            openNPCDialog('blacksmith');
+        }
+        else if (action === 'sell_item') {
+            let idx = param;
+            let item = player.inventory[idx];
+            if (item) {
+                let val = 25 + ((item.atkBonus || 0) * 2) + ((item.defBonus || 0) * 2);
+                player.gold += val;
+                player.inventory[idx] = null;
+                addLog(`⚒️ 賣出第 ${idx+1} 格【${item.name}】，換得靈石 ${val} 兩！`, "loot");
+                renderInventoryUI();
+            }
+            openNPCDialog('blacksmith'); 
+        }
+    }
+
+    function executeWitchAction(action) {
+        if (action === 'identify') {
+            if (player.unidentifiedCount <= 0 || player.gold < 50) {
+                addLog("❌ 無法鑑定：古物不足或靈石不足。", "system");
+                return;
+            }
+            player.gold -= 50; player.unidentifiedCount--;
+            let isUnique = Math.random() < 0.28 || player.blessing;
+            let pf = prefixes[Math.floor(Math.random() * prefixes.length)];
+            let bw = baseWeapons[Math.floor(Math.random() * baseWeapons.length)];
+            
+            let power = Math.floor(Math.random() * 12) + caveFloor * 5 + 8;
+            let armor = Math.floor(Math.random() * 6) + caveFloor * 2 + 2;
+
+            let newItem;
+            if (isUnique) {
+                newItem = { name: `⭐【暗金】·${pf}`, atkBonus: power + 15, defBonus: armor + 6, equipped: false };
+                addLog(`🔮 鑑定出【極品暗金】法寶：${newItem.name} (攻+${power+15} 防+${armor+6})！已收入行囊。`, "unique");
+            } else {
+                newItem = { name: `${pf}·${bw}`, atkBonus: power, defBonus: armor, equipped: false };
+                addLog(`🔮 鑑定出魔法法寶：【${newItem.name}】(攻+${power} 防+${armor})！已收入行囊。`, "loot");
+            }
+            
+            let success = addToInventory(newItem);
+            if (!success) addLog("🎒 乾坤袋滿了，新法寶掉落虛空消失了！", "system");
+            openNPCDialog('witch'); 
+        }
+    }
+
+    function enterActivePortal() {
+        if (currentMap !== "town" || !activePortal) return;
+        transitionCooldown = 40; caveFloor = activePortal.floor;
+        initMap("cave", "portal");
+        addLog(`🌀 跨越虛空裂隙！你回到了地下第 ${caveFloor} 層。`, "system");
+    }
+
+    function handlePlayerDeath() {
+        addLog("☠️ 你力竭戰死……未鑑定古物遺失，靈魂被召回城鎮土地廟！", "combat");
+        player.hp = player.maxHp * 0.5; player.mp = player.maxMp * 0.5;
+        player.unidentifiedCount = 0; activePortal = null;
+        initMap("town");
+    }
+
+    function addLog(msg, type = "system") {
+        const logBox = document.getElementById("log"); const div = document.createElement("div");
+        div.className = `log-${type}`; div.innerText = msg; logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function mainGameLoop() { updateGame(); drawGame(); requestAnimationFrame(mainGameLoop); }
+
+    // 初始化 100格行囊與遊戲世界驅動
+    renderInventoryUI();
+    initMap("town");
+    mainGameLoop();
+</script>
+
+</body>
+</html>

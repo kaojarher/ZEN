@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仙俠傳奇</title>
+    <style>
+        :root {
+            --bg-color: #0c0d0e;
+            --panel-bg: #1a1c1e;
+            --text-color: #d1c7bd;
+            --accent-color: #cc9933;
+            --health-color: #a32a2a;
+            --mana-color: #2a6aa3;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        #game-container {
+            width: 900px;
+            background-color: var(--panel-bg);
+            border: 2px solid #3a352a;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid #3a352a;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h1 { color: var(--accent-color); margin: 0; font-size: 28px; letter-spacing: 2px; }
+        h2 { color: var(--accent-color); margin-top: 0; font-size: 20px; }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+        }
+
+        /* 屬性面板 */
+        .status-panel {
+            background: #111214;
+            border: 1px solid #3a352a;
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .bar {
+            height: 20px;
+            background: #333;
+            margin-bottom: 10px;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.3s; }
+        #hp-fill { background-color: var(--health-color); }
+        #mp-fill { background-color: var(--mana-color); }
+        .bar-text {
+            position: absolute; width: 100%; text-align: center;
+            font-size: 12px; line-height: 20px; color: #fff; font-weight: bold;
+        }
+
+        /* 主要內容區 */
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .scene-box {
+            background: #111214;
+            border: 1px solid #3a352a;
+            padding: 20px;
+            min-height: 200px;
+            border-radius: 4px;
+        }
+
+        /* 按鈕樣式 (暗黑式復古金邊) */
+        button {
+            background: linear-gradient(#2a251f, #151310);
+            color: #d1c7bd;
+            border: 1px solid #5a4d3c;
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: linear-gradient(#3a332a, #25211a);
+            border-color: var(--accent-color);
+            color: #fff;
+        }
+
+        /* 戰鬥日誌 */
+        .log-box {
+            background: #050505;
+            border: 1px solid #222;
+            height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #aaa;
+        }
+        .log-system { color: #888; }
+        .log-combat-player { color: #4ba3a5; }
+        .log-combat-enemy { color: #d9534f; }
+        .log-loot { color: #dfb15b; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <h1>鎖妖荒塚 (Diablo Clone)</h1>
+        <div id="location-title" style="color: #888; margin-top: 5px;">落霞村 - 平靜卻暗藏危機的村落</div>
+    </header>
+
+    <div class="game-layout">
+        <!-- 左側：角色狀態欄 -->
+        <div class="status-panel">
+            <h2>修仙者狀態</h2>
+            <p><strong>境界：</strong> <span id="char-level">練氣期第一層</span></p>
+            <p>氣血 (HP)</p>
+            <div class="bar"><div id="hp-fill" class="bar-fill"></div><div id="bar-hp-text" class="bar-text">100/100</div></div>
+            <p>靈力 (MP)</p>
+            <div class="bar"><div id="mp-fill" class="bar-fill"></div><div id="bar-mp-text" class="bar-text">50/50</div></div>
+            <hr style="border-color: #3a352a;">
+            <p><strong>攻擊力：</strong> <span id="char-atk">5-10</span></p>
+            <p><strong>防禦力：</strong> <span id="char-def">2</span></p>
+            <p><strong>靈石：</strong> <span id="char-gold" style="color:#dfb15b;">100</span> 兩</p>
+            <p><strong>當前法寶：</strong><br><span id="char-weapon" style="color:#aaa;">生鏽的鐵劍</span></p>
+        </div>
+
+        <!-- 右側：主要操作區與日誌 -->
+        <div class="main-panel">
+            <!-- 場景互動區 -->
+            <div id="scene-content" class="scene-box">
+                <!-- 動態由 JS 渲染 -->
+            </div>
+
+            <!-- 戰鬥日誌 -->
+            <div>
+                <h3 style="margin: 0 0 5px 0; font-size: 14px; color: #888;">修煉紀要 (日誌)</h3>
+                <div id="log" class="log-box"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 遊戲資料狀態 ---
+    const player = {
+        level: 1,
+        hp: 100, maxHp: 100,
+        mp: 50, maxMp: 50,
+        baseAtkMin: 5, baseAtkMax: 10,
+        def: 2, gold: 100,
+        weapon: { name: "生鏽的鐵劍", atkMin: 0, atkMax: 0 },
+        blessing: false
+    };
+
+    let currentFloor = 0; // 0 = 村莊, 1+ = 鎖妖洞層數
+    let currentEnemy = null;
+
+    // 裝備隨機詞綴資料庫 (暗黑1風格)
+    const prefixes = ["純陽之", "玄冰之", "喋血的", "寂滅的", "幽冥的"];
+    const suffixes = ["之迅雷", "之破甲", "之弒妖", "之長生"];
+    const baseWeapons = ["桃木劍", "精鐵劍", "八卦鏡", "玄鐵重劍"];
+
+    // 妖怪資料庫
+    const monsterTemplates = [
+        { name: "穴居枯骨", hp: 30, atkMin: 3, atkMax: 6, def: 0, exp: 10 },
+        { name: "雙瞳怨鬼", hp: 45, atkMin: 5, atkMax: 9, def: 1, exp: 15 },
+        { name: "嗜血蛛精", hp: 60, atkMin: 8, atkMax: 14, def: 2, exp: 25 },
+        { name: "千年份地煞妖犬", hp: 120, atkMin: 15, atkMax: 25, def: 5, exp: 60 }
+    ];
+
+    // --- 核心邏輯功能 ---
+    function logMessage(msg, type = "system") {
+        const logBox = document.getElementById("log");
+        const div = document.createElement("div");
+        div.className = `log-${type}`;
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function updateUI() {
+        document.getElementById("char-level").innerText = `練氣期第 ${player.level} 層`;
+        document.getElementById("char-gold").innerText = player.gold;
+        
+        // 計算法寶加成後的攻擊力
+        const totalMin = player.baseAtkMin + player.weapon.atkMin;
+        const totalMax = player.baseAtkMax + player.weapon.atkMax;
+        document.getElementById("char-atk").innerText = `${totalMin}-${totalMax}`;
+        document.getElementById("char-def").innerText = player.def;
+        document.getElementById("char-weapon").innerText = player.weapon.name;
+
+        // 狀態條
+        document.getElementById("hp-fill").style.width = `${(player.hp / player.maxHp) * 100}%`;
+        document.getElementById("bar-hp-text").innerText = `${player.hp}/${player.maxHp}`;
+        document.getElementById("mp-fill").style.width = `${(player.mp / player.maxMp) * 100}%`;
+        document.getElementById("bar-mp-text").innerText = `${player.mp}/${player.maxMp}`;
+    }
+
+    // --- 場景切換渲染 ---
+    function enterVillage() {
+        currentFloor = 0;
+        currentEnemy = null;
+        document.getElementById("location-title").innerText = "落霞村 - 平靜卻暗藏危機的村落";
+        
+        let html = `
+            <h2>村落廣場</h2>
+            <p>夕陽西下，殘陽如血。村子中央古樹枯槁，村民們面色凝重。後方的土地公廟散發着微弱的香火神光，壓制著更後方那座黑不見底的山洞。</p>
+            <button onclick="enterTemple()">⛩️ 走進土地公廟</button>
+            <button onclick="enterCave()">⛰️ 前往廟後鎖妖洞 (當前: 第 ${currentFloor + 1} 層)</button>
+        `;
+        document.getElementById("scene-content").innerHTML = html;
+        updateUI();
+    }
+
+    function enterTemple() {
+        document.getElementById("location-title").innerText = "落霞村 - 土地公廟";
+        let blessingStatus = player.blessing ? "<span style='color:#6be86b;'>(已獲得神力加持)</span>" : "";
+        let html = `
+            <h2>土地公廟</h2>
+            <p>裊裊青煙中，一位白髮蒼蒼的古稀廟祝正在清掃落葉。供桌上的土地神像雙目似有神光。</p>
+            <p><strong>廟祝開口道：</strong>「少俠，洞內妖氣愈發肆虐，老朽這有幾枚仙丹與神祇祝福，或可助你一臂之力。」</p>
+            <div style="margin-bottom: 15px;">
+                <button onclick="buyItem('hp', 20)">💊 購買「補血小還丹」 (20兩靈石)</button>
+                <button onclick="buyItem('mp', 15)">🧪 購買「化清聚靈丹」 (15兩靈石)</button>
+                <button onclick="getBlessing()">✨ 請求土地公祝福 (50兩靈石) ${blessingStatus}</button>
+            </div>
+            <button onclick="enterVillage()">🔙 返回村落廣場</button>
+        `;
+        document.getElementById("scene-content").innerHTML = html;
+    }
+
+    function buyItem(type, cost) {
+        if (player.gold < cost) {
+            logMessage("靈石不足，無法購買丹藥！", "system");
+            return;
+        }
+        player.gold -= cost;
+        if (type === 'hp') {
+            player.hp = Math.min(player.maxHp, player.hp + 40);
+            logMessage("服下小還丹，氣血回復 40 點。", "combat-player");
+        } else {
+            player.mp = Math.min(player.maxMp, player.mp + 25);
+            logMessage("服下聚靈丹，靈力回復 25 點。", "combat-player");
+        }
+        enterTemple();
+    }
+
+    function getBlessing() {
+        if (player.gold < 50) {
+            logMessage("靈石不足，無法獲得土地公祝福！", "system");
+            return;
+        }
+        if (player.blessing) {
+            logMessage("你身上已有祝福神光，無需重複祈求。", "system");
+            return;
+        }
+        player.gold -= 50;
+        player.blessing = true;
+        player.baseAtkMin += 3;
+        player.baseAtkMax += 3;
+        logMessage("土地公顯靈！神光罩體，攻擊力永久提升 3 點！", "loot");
+        enterTemple();
+    }
+
+    // --- 鎖妖洞（地下城）邏輯 ---
+    function enterCave() {
+        if (currentFloor === 0) currentFloor = 1;
+        document.getElementById("location-title").innerText = `鎖妖洞 - 深邃第 ${currentFloor} 層`;
+        
+        // 隨機抽選該層妖怪 (層數越高，越容易遇到強怪)
+        let monsterIndex = Math.min(monsterTemplates.length - 1, Math.floor(Math.random() * (currentFloor)));
+        if (Math.random() > 0.7 && monsterIndex < monsterTemplates.length - 1) monsterIndex++;
+        
+        let template = monsterTemplates[monsterIndex];
+        // 根據層數強化怪獸數值
+        currentEnemy = {
+            name: `【第${currentFloor}層】${template.name}`,
+            hp: template.hp + (currentFloor * 5),
+            maxHp: template.hp + (currentFloor * 5),
+            atkMin: template.atkMin + currentFloor,
+            atkMax: template.atkMax + currentFloor,
+            def: template.def,
+            exp: template.exp
+        };
+
+        logMessage(`你步入了陰森的第 ${currentFloor} 層... 黑暗中亮起一雙血眼！遇到了 ${currentEnemy.name}！`, "system");
+        renderCombatScene();
+    }
+
+    function renderCombatScene() {
+        let html = `
+            <h2>⚔️ 遭遇妖物 ⚔️</h2>
+            <div style="background: #221111; padding: 10px; border: 1px solid #a32a2a; margin-bottom: 15px;">
+                <strong style="color: #d9534f;">${currentEnemy.name}</strong><br>
+                氣血值: ${currentEnemy.hp} / ${currentEnemy.maxHp}<br>
+                妖力威脅: 攻擊力 ${currentEnemy.atkMin}-${currentEnemy.atkMax}
+            </div>
+            
+            <button onclick="executeAttack()">⚔️ 揮劍斬擊 (普通攻擊)</button>
+            <button onclick="executeSpell()">🔥 施展「御火訣」 (消耗 15 靈力)</button>
+            <button onclick="fleeToVillage()" style="color: #aaa;">🏃 祭出逃命血符 (逃回村莊)</button>
+        `;
+        document.getElementById("scene-content").innerHTML = html;
+        updateUI();
+    }
+
+    // 隨機法寶生成器 (暗黑式隨機詞綴)
+    function generateRandomLoot() {
+        let pf = prefixes[Math.floor(Math.random() * prefixes.length)];
+        let sf = suffixes[Math.floor(Math.random() * suffixes.length)];
+        let base = baseWeapons[Math.floor(Math.random() * baseWeapons.length)];
+        
+        let bonusAtkMin = Math.floor(Math.random() * 5) + currentFloor;
+        let bonusAtkMax = bonusAtkMin + Math.floor(Math.random() * 5) + currentFloor;
+
+        return {
+            name: `${pf}${base}${sf}`,
+            atkMin: bonusAtkMin,
+            atkMax: bonusAtkMax
+        };
+    }
+
+    // --- 戰鬥回合演算 ---
+    function executeAttack() {
+        if (!currentEnemy) return;
+
+        // 1. 玩家攻擊
+        let pAtk = Math.floor(Math.random() * ((player.baseAtkMax + player.weapon.atkMax) - (player.baseAtkMin + player.weapon.atkMin) + 1)) + (player.baseAtkMin + player.weapon.atkMin);
+        let dmgToEnemy = Math.max(1, pAtk - currentEnemy.def);
+        currentEnemy.hp -= dmgToEnemy;
+        logMessage(`你使出凡塵劍法，對 ${currentEnemy.name} 造成了 ${dmgToEnemy} 點傷害。`, "combat-player");
+
+        if (currentEnemy.hp <= 0) {
+            handleVictory();
+            return;
+        }
+
+        // 2. 敵方反擊
+        enemyCounterAttack();
+    }
+
+    function executeSpell() {
+        if (!currentEnemy) return;
+        if (player.mp < 15) {
+            logMessage("靈力不足，無法施展御火訣！", "system");
+            return;
+        }
+
+        player.mp -= 15;
+        // 法術無視防禦且傷害較高
+        let spellDmg = Math.floor(Math.random() * 15) + 20 + player.level * 2;
+        currentEnemy.hp -= spellDmg;
+        logMessage("你掐訣念咒，指尖轟出一道烈焰赤火！對妖物造成 " + spellDmg + " 點爆裂法術傷害！", "combat-player");
+
+        if (currentEnemy.hp <= 0) {
+            handleVictory();
+            return;
+        }
+
+        enemyCounterAttack();
+    }
+
+    function enemyCounterAttack() {
+        let eAtk = Math.floor(Math.random() * (currentEnemy.atkMax - currentEnemy.atkMin + 1)) + currentEnemy.atkMin;
+        let dmgToPlayer = Math.max(1, eAtk - player.def);
+        player.hp -= dmgToPlayer;
+        logMessage(`${currentEnemy.name} 揮舞利爪/噴吐毒霧，對你造成了 ${dmgToPlayer} 點傷害。`, "combat-enemy");
+
+        if (player.hp <= 0) {
+            handleDeath();
+        } else {
+            renderCombatScene();
+        }
+    }
+
+    function handleVictory() {
+        logMessage(`💥 斬殺了 ${currentEnemy.name}！`, "combat-player");
+        
+        // 獲得靈石與經驗（此處簡化為直接掉落靈石與機率法寶）
+        let goldDrop = Math.floor(Math.random() * 15) + currentFloor * 5;
+        player.gold += goldDrop;
+        logMessage(`獲得戰利品：靈石 ${goldDrop} 兩。`, "loot");
+
+        // 隨機裝備掉落機率 (40%)
+        if (Math.random() < 0.4) {
+            let newLoot = generateRandomLoot();
+            logMessage(`【神兵降世】妖物屍身中浮現一件法寶：${newLoot.name} (傷害 +${newLoot.atkMin}~${newLoot.atkMax})`, "loot");
+            
+            // 簡化機制：如果比身上的好或玩家想換，直接自動裝備
+            if (newLoot.atkMax > player.weapon.atkMax) {
+                player.weapon = newLoot;
+                logMessage(`[系統] 你自動裝備了更強力的法寶：${newLoot.name}`, "system");
+            }
+        }
+
+        // 轉向下一層抉擇
+        let html = `
+            <h2>戰鬥勝利！</h2>
+            <p>這隻邪祟已灰飛煙滅，四周的妖風似乎稍微停歇，但通往更深處的石階已悄然開啟...</p>
+            <button onclick="currentFloor++; enterCave()">🚪 邁向地底下一層 (第 ${currentFloor + 1} 層)</button>
+            <button onclick="enterVillage()">🏃 班師回朝，返回村落整備</button>
+        `;
+        document.getElementById("scene-content").innerHTML = html;
+        currentEnemy = null;
+        updateUI();
+    }
+
+    function handleDeath() {
+        logMessage("☠️ 你力戰不支，眼前一黑，修仙道果宿命崩塌……", "combat-enemy");
+        let html = `
+            <h2 style="color:red;">修仙身殞</h2>
+            <p>你倒在了鎖妖洞第 ${currentFloor} 層。幸得土地公神光庇佑，廟祝將你的元神肉身強行拉回村莊，但你的法寶已在混戰中丟失，部分修為受損...</p>
+            <button onclick="resurrect()">🕯️ 耗費壽元凝聚肉身 (復活)</button>
+        `;
+        document.getElementById("scene-content").innerHTML = html;
+    }
+
+    function resurrect() {
+        player.hp = Math.floor(player.maxHp * 0.5); // 復活只有半血
+        player.mp = Math.floor(player.maxMp * 0.5);
+        player.weapon = { name: "木劍", atkMin: 0, atkMax: 0 }; // 裝備噴掉
+        logMessage("你在土地公廟後的草蓆上醒來，只覺得渾身經脈酸痛。", "system");
+        enterVillage();
+    }
+
+    function fleeToVillage() {
+        logMessage("你燃燒了一張血符，狼狽地逃回了村莊...", "system");
+        enterVillage();
+    }
+
+    // --- 初始化啟動 ---
+    window.onload = function() {
+        logMessage("歡迎來到《鎖妖荒塚》。後山洞窟妖氣衝天，去向廟祝打聽消息吧。", "system");
+        enterVillage();
+    };
+</script>
+
+</body>
+</html>

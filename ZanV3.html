@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>鎖妖荒塚：御劍伏魔傳奇 v2.0</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --panel-bg: #1f2833;
+            --panel-light: #2c3531;
+            --text-color: #c5a059;
+            --text-light: #eaede6;
+            --health-color: #ff4d4d;
+            --mana-color: #00a8ff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 1100px;
+            background-color: var(--panel-bg);
+            border: 3px solid #45a29e;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        @media (min-width: 900px) {
+            #game-container {
+                grid-template-columns: 1fr 320px;
+            }
+        }
+
+        .view-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            width: 100%;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            background-color: #000;
+            border: 2px solid #45a29e;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #11141a;
+            border: 1px solid #45a29e;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .status-header h2 {
+            color: var(--text-color);
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            text-align: center;
+            border-bottom: 1px solid #45a29e;
+            padding-bottom: 5px;
+        }
+
+        .bar {
+            height: 20px;
+            background: #252830;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #444;
+        }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.1s; }
+        #hp-fill { background-color: var(--health-color); }
+        #mp-fill { background-color: var(--mana-color); }
+        .bar-text {
+            position: absolute; width: 100%; text-align: center;
+            font-size: 11px; line-height: 18px; color: #fff; font-weight: bold;
+        }
+
+        button {
+            background: linear-gradient(#2c3531, #11141a);
+            color: var(--text-light);
+            border: 1px solid #45a29e;
+            padding: 10px;
+            margin: 2px 0;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+            width: 100%;
+            transition: 0.2s;
+        }
+        button:hover {
+            border-color: #66fcf1;
+            box-shadow: 0 0 8px rgba(102,252,241,0.5);
+        }
+
+        .log-box {
+            background: #05070a;
+            border: 1px solid #333;
+            height: 120px;
+            overflow-y: auto;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #95a5a6;
+            border-radius: 4px;
+        }
+        .log-loot { color: #f1c40f; font-weight: bold; }
+        .log-combat { color: #e74c3c; font-weight: bold; }
+        .log-system { color: #52b788; }
+
+        .mobile-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: rgba(31, 40, 51, 0.5);
+            border-radius: 8px;
+        }
+
+        #joystick-zone {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(69, 162, 158, 0.4);
+            border-radius: 50%;
+            position: relative;
+        }
+        #joystick-stick {
+            width: 36px;
+            height: 36px;
+            background: #66fcf1;
+            border-radius: 50%;
+            position: absolute;
+            left: 32px;
+            top: 32px;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 120px;
+        }
+        .btn-spell { background: linear-gradient(#1f4068, #11141a); border-color: var(--mana-color); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="view-panel">
+        <div style="display: flex; justify-content: space-between; color: var(--text-color); font-weight: bold; font-size: 15px;">
+            <span id="map-title">📍 落霞村 (安全整備)</span>
+            <span id="floor-indicator">🗺️ 繁華村落</span>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="mobile-controls">
+            <div id="joystick-zone">
+                <div id="joystick-stick"></div>
+            </div>
+            <div class="action-buttons">
+                <button class="btn-spell" onclick="playerCastSpell()">🔥 御火訣</button>
+                <div style="text-align: center; font-size: 11px; color: #66fcf1;">靠近怪自動御劍</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="side-panel">
+        <div class="status-header">
+            <h2>🧝‍♂️ 修仙法紀</h2>
+            <p style="margin: 4px 0;"><strong>境界：</strong> <span id="char-level" style="color:#66fcf1;">練氣期第一層</span></p>
+            <p style="margin: 4px 0;"><strong>靈石：</strong> <span id="char-gold" style="color:#f1c40f;">150</span> 兩</p>
+            <div class="bar"><div id="hp-fill" class="bar-fill"></div><div id="bar-hp-text" class="bar-text">100/100 HP</div></div>
+            <div class="bar"><div id="mp-fill" class="bar-fill"></div><div id="bar-mp-text" class="bar-text">50/50 MP</div></div>
+            <p style="margin: 4px 0; font-size:13px;"><strong>當前法寶：</strong> <span id="char-weapon" style="color:#fff;">凡鐵木劍 🪵</span></p>
+            <p style="margin: 4px 0; font-size:12px; color:#aaa;"><strong>背囊未鑑定：</strong> 📦 <span id="char-bag">0</span> 件</p>
+        </div>
+
+        <div id="town-menu">
+            <h3 style="margin: 5px 0; font-size: 14px; color: var(--text-color);">⛩️ 村落與廟宇整備</h3>
+            <button onclick="interactNPC('temple')">⛩️ 土地公廟祝 (祈福補給)</button>
+            <button onclick="interactNPC('blacksmith')">⚒️ 鐵匠阿海 (熔鑄法寶)</button>
+            <button onclick="interactNPC('witch')">🔮 盲眼大仙神婆 (開光鑑定)</button>
+        </div>
+
+        <div style="background: #151922; padding: 10px; border: 1px solid #333; border-radius: 4px; font-size: 12px;">
+            <span style="color: var(--text-color); font-weight: bold;">📜 當前村落異聞：</span>
+            <div id="quest-text" style="color:#ddd; margin-top:3px;">暫無異聞，去廟後深處看看。</div>
+        </div>
+
+        <div>
+            <h3 style="margin: 0 0 5px 0; font-size: 13px; color: #888;">📜 戰鬥與修煉日誌</h3>
+            <div id="log" class="log-box"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const player = {
+        x: 320, y: 380, speed: 4.5, size: 16,
+        level: 1, hp: 100, maxHp: 100, mp: 50, maxMp: 50, gold: 150,
+        unidentifiedCount: 0, blessing: false,
+        weapon: { name: "凡鐵木劍 🪵", atkBonus: 0 }
+    };
+
+    let currentMap = "town"; 
+    let caveFloor = 0;
+    let grid = [];
+    const tileSize = 40; 
+    const mapWidth = 16;
+    const mapHeight = 12; 
+
+    let monsters = [];
+    let flyingSwords = []; 
+    let activeQuest = null;
+
+    // 儲存樓梯位置以便返回時精準傳送
+    let lastExitPos = { x: 320, y: 380 }; 
+
+    const npcs = {
+        templeKeeper: { x: 320, y: 160, emoji: "👴", name: "廟祝" },
+        blacksmith: { x: 120, y: 160, emoji: "⚒️", name: "鐵匠阿海" },
+        witch: { x: 520, y: 160, emoji: "🔮", name: "神婆" }
+    };
+
+    const prefixes = ["純陽太乙", "玄冰烈火", "喋血修羅", "寂滅太虛", "九幽黃泉"];
+    const baseWeapons = ["斬妖劍 🗡️", "飛仙劍 ⚔️", "八卦寶鏡 🪞", "盤古重劍 🪓"];
+    const suffixes = ["之迅雷", "之破甲", "之殺戮", "之混元"];
+    const monsterEmojis = ["👹", "👻", "🕷️", "🐍", "🦇"];
+    const monsterNames = ["地底黑魃", "含冤厲鬼", "百目毒蛛", "赤煉鱗蛇", "嗜血飛蝙"];
+
+    const keys = {};
+    window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+    window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+    function initMap(mapType, direction = "down") {
+        grid = [];
+        for (let y = 0; y < mapHeight; y++) {
+            grid[y] = [];
+            for (let x = 0; x < mapWidth; x++) {
+                if (x === 0 || x === mapWidth - 1 || y === 0 || y === mapHeight - 1) {
+                    grid[y][x] = "🧱"; 
+                } else {
+                    grid[y][x] = "⬛"; 
+                }
+            }
+        }
+
+        flyingSwords = [];
+
+        if (mapType === "town") {
+            currentMap = "town";
+            caveFloor = 0;
+            for(let x=6; x<=9; x++) grid[3][x] = "🧱";
+            grid[3][7] = "⬛"; 
+            grid[1][7] = "🪜"; // 前往地底第一層
+
+            // 從第一層回村時，出生在土地廟入口旁
+            player.x = 7 * tileSize + tileSize/2; 
+            player.y = 2 * tileSize + tileSize/2;
+            monsters = [];
+            document.getElementById("map-title").innerText = "📍 落霞村 (安全整備)";
+            document.getElementById("floor-indicator").innerText = "🗺️ 繁華村落";
+            document.getElementById("town-menu").style.display = "block";
+        } else {
+            currentMap = "cave";
+            
+            // 隨機障礙牆
+            for (let y = 2; y < mapHeight - 2; y++) {
+                for (let x = 2; x < mapWidth - 2; x++) {
+                    if (Math.random() < 0.15) grid[y][x] = "🧱";
+                }
+            }
+
+            // 設置「返回上一層/回村」的樓梯
+            let upX = 2;
+            let upY = 2;
+            grid[upY][upX] = "🧗";
+
+            // 設置「前往下一層」的樓梯
+            let downX, downY;
+            do {
+                downX = Math.floor(Math.random() * 5) + 10;
+                downY = Math.floor(Math.random() * 4) + 6;
+            } while (grid[downY][downX] === "🧱");
+            grid[downY][downX] = "🪜";
+
+            // 調整玩家出生點，避免跟樓梯重疊或被卡住
+            if (direction === "down") {
+                // 向下走：出生在「向上樓梯」旁邊
+                player.x = (upX + 1) * tileSize + tileSize/2;
+                player.y = upY * tileSize + tileSize/2;
+            } else {
+                // 向上回頭：出生在「向下樓梯」旁邊
+                player.x = (downX - 1) * tileSize + tileSize/2;
+                player.y = downY * tileSize + tileSize/2;
+            }
+            grid[upY][upX] = "🧗";
+            grid[upY][upX+1] = "⬛"; // 確保出生點暢通
+
+            document.getElementById("map-title").innerText = `⚔️ 鎖妖洞窟 - 第 ${caveFloor} 層`;
+            document.getElementById("floor-indicator").innerText = `💀 妖氣沖天 (Dungeon)`;
+            document.getElementById("town-menu").style.display = "none";
+
+            spawnCaveMonsters();
+        }
+    }
+
+    function spawnCaveMonsters() {
+        monsters = [];
+        let count = 3 + caveFloor;
+        for (let i = 0; i < count; i++) {
+            let mx, my;
+            do {
+                mx = Math.floor(Math.random() * (mapWidth - 3)) + 2;
+                my = Math.floor(Math.random() * (mapHeight - 3)) + 2;
+            } while (grid[my][mx] !== "⬛" || Math.hypot(mx*tileSize - player.x, my*tileSize - player.y) < 120);
+
+            let typeIndex = Math.floor(Math.random() * monsterEmojis.length);
+            monsters.push({
+                x: mx * tileSize + tileSize / 2,
+                y: my * tileSize + tileSize / 2,
+                emoji: monsterEmojis[typeIndex],
+                name: monsterNames[typeIndex],
+                hp: 30 + caveFloor * 20,
+                maxHp: 30 + caveFloor * 20,
+                atk: 4 + caveFloor * 2,
+                speed: 1.2 + Math.random() * 1.2,
+                vx: Math.random() > 0.5 ? 1 : -1,
+                vy: Math.random() > 0.5 ? 1 : -1,
+                attackCooldown: 0
+            });
+        }
+
+        if (Math.random() < 0.35 && !activeQuest) {
+            activeQuest = { name: "赤血妖王降臨", targetEliminated: false };
+            monsters[0].emoji = "👹";
+            monsters[0].name = "🔥【異聞大魔王】赤血妖皇";
+            monsters[0].hp *= 3;
+            monsters[0].maxHp *= 3;
+            monsters[0].atk *= 1.8;
+            monsters[0].speed += 0.5;
+            document.getElementById("quest-text").innerText = "🚨 發現異聞：擊殺本層的『赤血妖皇』可獲得神兵古物！";
+            addLog("📜 周圍牆壁滲出鮮血... 傳說中的【赤血妖皇】在本層甦醒了！", "combat");
+        }
+    }
+
+    function getGridCell(px, py) {
+        let gx = Math.floor(px / tileSize);
+        let gy = Math.floor(py / tileSize);
+        if (gx < 0 || gx >= mapWidth || gy < 0 || gy >= mapHeight) return "🧱";
+        return grid[gy][gx];
+    }
+
+    let globalAttackTimer = 0;
+    let transitionCooldown = 0; // 防止連續觸發樓梯傳送
+
+    function updateGame() {
+        if (transitionCooldown > 0) transitionCooldown--;
+
+        let dx = 0; let dy = 0;
+        if (keys['w'] || keys['arrowup']) dy = -player.speed;
+        if (keys['s'] || keys['arrowdown']) dy = player.speed;
+        if (keys['a'] || keys['arrowleft']) dx = -player.speed;
+        if (keys['d'] || keys['arrowright']) dx = player.speed;
+
+        if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+
+        if (getGridCell(player.x + dx, player.y) !== "🧱") player.x += dx;
+        if (getGridCell(player.x, player.y + dy) !== "🧱") player.y += dy;
+
+        // 觸發踩格事件
+        let currentCell = getGridCell(player.x, player.y);
+        
+        if (transitionCooldown === 0) {
+            // 1. 向下樓梯 🪜
+            if (currentCell === "🪜") {
+                transitionCooldown = 30;
+                if (currentMap === "town") {
+                    caveFloor = 1;
+                    initMap("cave", "down");
+                    addLog("⚔️ 你踏入土地廟後山秘洞，四周寒風大作！", "combat");
+                } else {
+                    caveFloor++;
+                    initMap("cave", "down");
+                    addLog(`🪜 你順著崩塌的石階，下到了鎖妖洞第 ${caveFloor} 層。`, "system");
+                }
+                return;
+            }
+            
+            // 2. 新增：向上/回村樓梯 🧗
+            if (currentCell === "🧗") {
+                transitionCooldown = 30;
+                if (currentMap === "cave") {
+                    if (caveFloor === 1) {
+                        initMap("town", "up");
+                        addLog("⛩️ 你沿著梯子爬出了地底，回到了安寧的落霞村。", "system");
+                    } else {
+                        caveFloor--;
+                        initMap("cave", "up");
+                        addLog(`🧗 你往回攀爬，回到了鎖妖洞第 ${caveFloor} 層。`, "system");
+                    }
+                }
+                return;
+            }
+        }
+
+        globalAttackTimer++;
+        if (currentMap === "cave" && globalAttackTimer % 22 === 0) {
+            let nearestMonster = null;
+            let minDist = 180; 
+
+            monsters.forEach(m => {
+                let d = Math.hypot(m.x - player.x, m.y - player.y);
+                if (d < minDist) { minDist = d; nearestMonster = m; }
+            });
+
+            if (nearestMonster) {
+                flyingSwords.push({
+                    x: player.x, y: player.y,
+                    target: nearestMonster,
+                    speed: 9,
+                    emoji: "🗡️",
+                    life: 45
+                });
+            }
+        }
+
+        for (let i = flyingSwords.length - 1; i >= 0; i--) {
+            let s = flyingSwords[i];
+            let angle = Math.atan2(s.target.y - s.y, s.target.x - s.x);
+            s.x += Math.cos(angle) * s.speed;
+            s.y += Math.sin(angle) * s.speed;
+            s.life--;
+
+            let distToTarget = Math.hypot(s.target.x - s.x, s.target.y - s.y);
+            if (distToTarget < 20 || s.life <= 0) {
+                if (distToTarget < 20) {
+                    let baseDmg = 8 + player.level * 2 + player.weapon.atkBonus;
+                    let finalDmg = Math.floor(baseDmg * (0.8 + Math.random() * 0.4));
+                    s.target.hp -= finalDmg;
+                    
+                    s.target.x += Math.cos(angle) * 8;
+                    s.target.y += Math.sin(angle) * 8;
+
+                    if (s.target.hp <= 0) {
+                        let idx = monsters.indexOf(s.target);
+                        if (idx !== -1) {
+                            let goldLoot = Math.floor(Math.random() * 25) + caveFloor * 8;
+                            player.gold += goldLoot;
+                            addLog(`💥 飛劍貫穿！斬殺【${s.target.name}】，奪得靈石 ${goldLoot} 兩`, "loot");
+
+                            if (Math.random() < 0.45) {
+                                player.unidentifiedCount++;
+                                addLog("📦 妖邪身上掉落一件【未開光法寶物資】，快回村找神婆！", "loot");
+                            }
+
+                            if (s.target.name.includes("【異聞大魔王】")) {
+                                let reward = caveFloor * 150;
+                                player.gold += reward;
+                                addLog(`🎉 成功完成異聞！領取玄門賞金 ${reward} 兩！`, "loot");
+                                activeQuest = null;
+                                document.getElementById("quest-text").innerText = "暫無異聞，去廟後深處看看。";
+                            }
+                            monsters.splice(idx, 1);
+                        }
+                    }
+                }
+                flyingSwords.splice(i, 1);
+            }
+        }
+
+        monsters.forEach(m => {
+            if (Math.random() < 0.04) {
+                m.vx = (Math.random() * 2 - 1) * m.speed;
+                m.vy = (Math.random() * 2 - 1) * m.speed;
+            }
+
+            if (getGridCell(m.x + m.vx, m.y) !== "🧱") m.x += m.vx; else m.vx *= -1;
+            if (getGridCell(m.x, m.y + m.vy) !== "🧱") m.y += m.vy; else m.vy *= -1;
+
+            let distToPlayer = Math.hypot(player.x - m.x, player.y - m.y);
+            if (distToPlayer < 24) {
+                player.hp -= (m.atk * 0.04);
+                if (player.hp <= 0) handlePlayerDeath();
+            }
+        });
+    }
+
+    function playerCastSpell() {
+        if (currentMap !== "cave") return;
+        if (player.mp < 15) { addLog("❌ 體內靈力油枯燈盡，無法捏訣施法！", "system"); return; }
+        if (monsters.length === 0) return;
+
+        player.mp -= 15;
+        addLog("🔥 你催動內丹施展【御火訣】，無差別離火爆裂整座洞窟！", "combat");
+        
+        for (let i = monsters.length - 1; i >= 0; i--) {
+            let m = monsters[i];
+            let spellDmg = Math.floor(25 + Math.random() * 20 + player.level * 3);
+            m.hp -= spellDmg;
+            
+            if (m.hp <= 0) {
+                player.gold += 15;
+                monsters.splice(i, 1);
+                addLog(`💥 烈焰焚燼【${m.name}】！`, "loot");
+            }
+        }
+    }
+
+    function drawGame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < mapHeight; y++) {
+            for (let x = 0; x < mapWidth; x++) {
+                let cell = grid[y][x];
+                ctx.font = "28px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                let cx = x * tileSize + tileSize / 2;
+                let cy = y * tileSize + tileSize / 2;
+
+                if (cell === "🧱") {
+                    ctx.fillText("🧱", cx, cy);
+                } else if (cell === "🪜") {
+                    ctx.fillStyle = "#111";
+                    ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                    ctx.fillText("🪜", cx, cy);
+                } else if (cell === "🧗") {
+                    // 繪製向上回村的樓梯
+                    ctx.fillStyle = "#1a1105";
+                    ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                    ctx.fillText("🧗", cx, cy);
+                } else {
+                    ctx.fillStyle = "#0c0e12";
+                    ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                }
+            }
+        }
+
+        if (currentMap === "town") {
+            ctx.font = "18px sans-serif";
+            ctx.fillStyle = "#66fcf1";
+            ctx.fillText("⛩️ 土地廟地道入口", 7 * tileSize + 20, 2 * tileSize - 5);
+
+            for (let key in npcs) {
+                let npc = npcs[key];
+                ctx.font = "28px sans-serif";
+                ctx.fillText(npc.emoji, npc.x, npc.y);
+                ctx.font = "11px sans-serif";
+                ctx.fillStyle = "#cc9933";
+                ctx.fillText(npc.name, npc.x, npc.y - 22);
+            }
+        }
+
+        monsters.forEach(m => {
+            ctx.font = "30px sans-serif";
+            ctx.fillText(m.emoji, m.x, m.y);
+
+            let barW = 28;
+            ctx.fillStyle = "#444";
+            ctx.fillRect(m.x - barW/2, m.y - 24, barW, 4);
+            ctx.fillStyle = "#ff4d4d";
+            ctx.fillRect(m.x - barW/2, m.y - 24, (m.hp / m.maxHp) * barW, 4);
+        });
+
+        flyingSwords.forEach(s => {
+            ctx.font = "22px sans-serif";
+            ctx.fillText(s.emoji, s.x, s.y);
+        });
+
+        ctx.font = "32px sans-serif";
+        ctx.fillText(player.blessing ? "👑" : "🧝‍♂️", player.x, player.y);
+        ctx.font = "12px sans-serif";
+        ctx.fillStyle = "#66fcf1";
+        ctx.fillText("你", player.x, player.y - 24);
+
+        document.getElementById("hp-fill").style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+        document.getElementById("bar-hp-text").innerText = `${Math.ceil(player.hp)}/${player.maxHp} HP`;
+        document.getElementById("mp-fill").style.width = `${Math.max(0, (player.mp / player.maxMp) * 100)}%`;
+        document.getElementById("bar-mp-text").innerText = `${player.mp}/${player.maxMp} MP`;
+        document.getElementById("char-gold").innerText = player.gold;
+        document.getElementById("char-bag").innerText = player.unidentifiedCount;
+        document.getElementById("char-weapon").innerText = player.weapon.name;
+    }
+
+    function interactNPC(npcType) {
+        if (currentMap !== "town") { addLog("❌ 荒郊野外危機四伏，必須回到村落整備！", "system"); return; }
+
+        if (npcType === 'temple') {
+            let menu = prompt("【土地公廟祝】:「少俠斬妖辛苦了，老朽這有神衹補給：」\n1. 飲用井泉神水 (氣血靈力回滿 - 免費)\n2. 購買「九轉聚靈丹」(靈力上限+10 - 花費50兩)\n3. 懇請土地公神光附體 (武器永久傷害+6 - 花費100兩)");
+            if (menu === "1") {
+                player.hp = player.maxHp; player.mp = player.maxMp;
+                addLog("🙏 廟祝揮灑仙露，你全身經脈瞬間舒張，狀態全滿！", "system");
+            } else if (menu === "2") {
+                if (player.gold >= 50) { player.gold -= 50; player.maxMp += 10; player.mp = player.maxMp; addLog("🧪 服下聚靈仙丹，丹田氣海擴張，靈力上限提升！", "loot"); }
+                else addLog("❌ 金銀財寶靈石不足！", "system");
+            } else if (menu === "3") {
+                if (player.gold >= 100 && !player.blessing) {
+                    player.gold -= 100; player.blessing = true; player.weapon.atkBonus += 6;
+                    addLog("✨ 供桌土地神像金光大作！賜予你太乙神光加持，永久提升攻擊力！", "loot");
+                } else addLog("❌ 靈石不足，或你早已身負土地公神光加持。", "system");
+            }
+        }
+        else if (npcType === 'blacksmith') {
+            if (player.gold >= 70) {
+                player.gold -= 70; player.weapon.atkBonus += 4;
+                addLog(`⚒️ 鐵匠阿海將你的【${player.weapon.name}】投入仙爐熔煉，法寶鋒銳度永久 +4！`, "loot");
+            } else addLog("⚒️ 阿海搖搖頭：「沒 70 兩靈石，仙爐不開火！」", "system");
+        }
+        else if (npcType === 'witch') {
+            if (player.unidentifiedCount <= 0) { addLog("🔮 神婆掐指一算：「你背包裡並沒有從地底帶回的混沌邪氣古物。」", "system"); return; }
+            if (player.gold < 40) { addLog("❌ 鑑定天眼法術需要 40 兩靈石費用。", "system"); return; }
+
+            player.gold -= 40; player.unidentifiedCount--;
+
+            let pf = prefixes[Math.floor(Math.random() * prefixes.length)];
+            let bw = baseWeapons[Math.floor(Math.random() * baseWeapons.length)];
+            let sf = suffixes[Math.floor(Math.random() * suffixes.length)];
+            let power = Math.floor(Math.random() * 12) + caveFloor * 5 + 5;
+
+            player.weapon = { name: `${pf}·${bw}${sf}`, atkBonus: power };
+            addLog(`🔮 神婆焚香開眼！鑑定出絕世神兵：【${player.weapon.name}】(附加傷害 +${power})！已自動裝備。`, "loot");
+        }
+    }
+
+    function handlePlayerDeath() {
+        addLog("☠️ 你體內經脈寸斷，道消身殞……幸得土地公將你魂魄強行拉回廟中。", "combat");
+        player.hp = player.maxHp * 0.5;
+        player.mp = player.maxMp * 0.5;
+        player.unidentifiedCount = 0; 
+        initMap("town");
+    }
+
+    function addLog(msg, type = "system") {
+        const logBox = document.getElementById("log");
+        const div = document.createElement("div");
+        div.className = `log-${type}`;
+        div.innerText = msg;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    const joystickZone = document.getElementById("joystick-zone");
+    const joystickStick = document.getElementById("joystick-stick");
+    let isJoyTouch = false; let jStartX = 0; let jStartY = 0;
+
+    joystickZone.addEventListener("touchstart", e => {
+        let touch = e.touches[0];
+        let rect = joystickZone.getBoundingClientRect();
+        jStartX = rect.left + rect.width / 2;
+        jStartY = rect.top + rect.height / 2;
+        isJoyTouch = true;
+    });
+
+    joystickZone.addEventListener("touchmove", e => {
+        if (!isJoyTouch) return;
+        let touch = e.touches[0];
+        let distanceX = touch.clientX - jStartX;
+        let distanceY = touch.clientY - jStartY;
+        let radians = Math.atan2(distanceY, distanceX);
+        let currentDist = Math.min(30, Math.hypot(distanceX, distanceY));
+
+        joystickStick.style.left = `${32 + Math.cos(radians) * currentDist}px`;
+        joystickStick.style.top = `${32 + Math.sin(radians) * currentDist}px`;
+
+        keys['w'] = Math.sin(radians) < -0.35;
+        keys['s'] = Math.sin(radians) > 0.35;
+        keys['a'] = Math.cos(radians) < -0.35;
+        keys['d'] = Math.cos(radians) > 0.35;
+    });
+
+    joystickZone.addEventListener("touchend", () => {
+        isJoyTouch = false;
+        joystickStick.style.left = "32px";
+        joystickStick.style.top = "32px";
+        keys['w'] = false; keys['s'] = false; keys['a'] = false; keys['d'] = false;
+    });
+
+    function mainGameLoop() {
+        updateGame();
+        drawGame();
+        requestAnimationFrame(mainGameLoop);
+    }
+
+    initMap("town");
+    mainGameLoop();
+</script>
+
+</body>
+</html>
