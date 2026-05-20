@@ -396,9 +396,10 @@
         </div>
 
         <div id="town-menu">
-            <button onclick="openNPCDialog('temple')" style="width:100%; margin-bottom:3px;">⛩️ 土地廟祝 (祈福與補給)</button>
+            <button onclick="openNPCDialog('temple')"     style="width:100%; margin-bottom:3px;">⛩️ 土地廟祝 (祈福與補給)</button>
             <button onclick="openNPCDialog('blacksmith')" style="width:100%; margin-bottom:3px;">⚒️ 鐵匠阿海 (重鑄與回收)</button>
-            <button onclick="openNPCDialog('witch')" style="width:100%;">🔮 盲眼神婆 (古物鑑定)</button>
+            <button onclick="openNPCDialog('witch')"      style="width:100%; margin-bottom:3px;">🔮 盲眼神婆 (古物鑑定)</button>
+            <button onclick="openNPCDialog('craneElder')" style="width:100%; border-color:#a0c4ff; color:#a0c4ff;">🧙 白鶴道人 (仙令任務)</button>
         </div>
 
         <div id="portal-menu" style="display:none;">
@@ -442,7 +443,13 @@
         level: 1, hp: 120, maxHp: 120, mp: 60, maxMp: 60, gold: 200, baseDef: 5,
         unidentifiedCount: 0,
         inventory: Array.from({ length: 100 }, (_, i) => i === 0 ? { name: "凡鐵木劍 🪵", atkBonus: 5, defBonus: 2, equipped: true } : null),
-        scrolls: { portal: 1, lightning: 2, blizzard: 1, healing: 2 }
+        scrolls: { portal: 1, lightning: 2, blizzard: 1, healing: 2 },
+        // 任務追蹤
+        quests: {
+            slayMonsters:  { active: false, done: false, count: 0, goal: 10 },
+            slayBosses:    { active: false, done: false, count: 0, goal: 3  },
+            reachFloor5:   { active: false, done: false }
+        }
     };
 
     let currentMap = "town"; 
@@ -459,8 +466,9 @@
 
     const npcs = {
         templeKeeper: { x: 320, y: 160, emoji: "👴", name: "廟祝" },
-        blacksmith: { x: 120, y: 160, emoji: "⚒️", name: "鐵匠" },
-        witch: { x: 520, y: 160, emoji: "🔮", name: "神婆" }
+        blacksmith:   { x: 120, y: 160, emoji: "⚒️", name: "鐵匠" },
+        witch:        { x: 520, y: 160, emoji: "🔮", name: "神婆" },
+        craneElder:   { x: 220, y: 300, emoji: "🧙", name: "白鶴道人" }
     };
 
     const prefixes = ["純陽太乙", "玄冰破壞", "喋血狂暴", "寂滅天劫", "不朽至尊", "太極金剛"];
@@ -790,9 +798,21 @@
             player.unidentifiedCount++; player.gold += (120 + caveFloor * 40);
             addLog(`👑 斬殺首領！爆出【未鑑定暗金法寶📦】與大量靈石！`);
             document.getElementById("quest-text").innerText = "本層威脅已除，請點擊階梯通往更深處。";
+            // 任務：伏魔令
+            if (player.quests.slayBosses.active && !player.quests.slayBosses.done) {
+                player.quests.slayBosses.count++;
+                addLog(`👑 【伏魔令】進度：${player.quests.slayBosses.count} / ${player.quests.slayBosses.goal}`);
+            }
         } else {
             addLog(`💥 擊殺【${m.name}】，獲得靈石 ${goldLoot} 兩。`);
             if (Math.random() < 0.22) { player.unidentifiedCount++; addLog("📦 發現一件未鑑定的混沌遺物！"); }
+        }
+        // 任務：斬妖令（首領也計入斬殺數）
+        if (player.quests.slayMonsters.active && !player.quests.slayMonsters.done) {
+            player.quests.slayMonsters.count++;
+            if (player.quests.slayMonsters.count >= player.quests.slayMonsters.goal) {
+                addLog("🗡️ 【斬妖令】目標達成！速回落霞村向白鶴道人領取獎勵！");
+            }
         }
         if (selectedMonster === m) selectedMonster = null;
         monsters.splice(idx, 1);
@@ -834,6 +854,11 @@
             transitionCooldown = 40;
             if (currentMap === "town") { caveFloor = 1; initMap("cave"); }
             else { caveFloor++; initMap("cave"); }
+            // 任務：踏淵令
+            if (caveFloor >= 5 && player.quests.reachFloor5.active && !player.quests.reachFloor5.done) {
+                player.quests.reachFloor5.count = 1;
+                addLog("🏔️ 【踏淵令】已踏入第 5 層！速回落霞村向白鶴道人領取獎勵！");
+            }
             addLog(`🪜 深入到鎖妖荒塚第 ${caveFloor} 層。`); return;
         }
 
@@ -1008,13 +1033,81 @@
                 <button class="npc-option-btn" onclick="buyScroll('healing',  35, '🩹回春術卷軸')">5. 🩹 購置回春術卷軸 (35 兩)</button>
             `;
         } else if (type === 'blacksmith') {
-            title.innerText = "⚒️ 鐵匠阿海"; content.innerText = "「打造鍛造爐每次需要 90 兩靈石，可強化你包袱內的第一件武器。」";
+            title.innerText = "⚒️ 鐵匠阿海";
+            content.innerText = "「老夫既能重鑄神兵，也可收購你不需要的法寶，換取靈石。」";
+
+            // 鍛造按鈕
+            let html = ``;
             const firstItem = player.inventory[0];
             if (firstItem) {
-                opts.innerHTML = `<button class="npc-option-btn" onclick="if(player.gold>=90){player.gold-=90; player.inventory[0].atkBonus+=7; player.inventory[0].defBonus+=3; renderInventoryUI(); addLog('⚒️ 鍛造成功！【' + player.inventory[0].name + '】已強化 (攻+7 防+3)。');} else { addLog('⚠️ 靈石不足，鍛造需要 90 兩！'); } closeNPCDialog();">⚒️ 重鑄重擊附魔 (攻+7 防+3，需 90 兩)</button>`;
+                html += `<button class="npc-option-btn" onclick="smithForge()">⚒️ 重鑄行囊第一件法寶 (攻+7 防+3，需 90 兩)</button>`;
             } else {
-                opts.innerHTML = `<div style="color:#aaa; font-size:12px;">行囊中無可鍛造的法寶。</div>`;
+                html += `<div style="color:#888; font-size:11px; padding:4px 0;">行囊中無可鍛造的法寶。</div>`;
             }
+
+            // 回收列表標題
+            html += `<div style="color:var(--text-color); font-size:11px; margin:8px 0 3px 0; border-top:1px solid #3a2e2b; padding-top:6px;">💰 回收法寶（攻×3 + 防×2 換靈石）：</div>`;
+
+            // 列出所有道具，裝備中的第一件不可售
+            let sellableCount = 0;
+            player.inventory.forEach((item, idx) => {
+                if (!item) return;
+                const price = item.atkBonus * 3 + item.defBonus * 2;
+                const isProtected = (idx === 0); // 第一件保護不可售
+                if (isProtected) {
+                    html += `<div class="npc-option-btn" style="opacity:0.4; cursor:not-allowed; font-size:11px;">[保護] ${item.name} → ${price} 兩（不可售）</div>`;
+                } else {
+                    sellableCount++;
+                    html += `<button class="npc-option-btn" style="font-size:11px;" onclick="sellItem(${idx})">[${idx+1}] ${item.name} (攻+${item.atkBonus} 防+${item.defBonus}) → 💰 ${price} 兩</button>`;
+                }
+            });
+            if (sellableCount === 0 && !firstItem) {
+                html += `<div style="color:#666; font-size:11px; padding:2px 0;">行囊空空，無物可售。</div>`;
+            } else if (sellableCount === 0) {
+                html += `<div style="color:#666; font-size:11px; padding:2px 0;">目前只有受保護的第一件法寶，無其他可售道具。</div>`;
+            }
+
+            opts.innerHTML = html;
+
+        } else if (type === 'craneElder') {
+            title.innerText = "🧙 白鶴道人";
+            const q = player.quests;
+            // 動態對白
+            let greeting = "「老道雲遊四方，見妖邪橫行，特此頒下三道仙令，望少俠替天行道。」";
+            if (q.slayMonsters.done && q.slayBosses.done && q.reachFloor5.done) {
+                greeting = "「少俠道心堅定，三道仙令皆已圓滿，老道深感欣慰。願你修途無阻，早登大道！」";
+            }
+            content.innerText = greeting;
+
+            let html = `<div style="font-size:11px; color:#888; margin-bottom:6px;">── 仙令任務板 ──</div>`;
+
+            // 任務一：斬妖令
+            html += renderQuestBtn(
+                'slayMonsters',
+                '🗡️ 【斬妖令】於深淵斬殺 10 隻妖邪',
+                `進度：${q.slayMonsters.count} / 10`,
+                '獎勵：靈石 200 兩 ＋ 傳送卷軸 ×2',
+                'claimQuest("slayMonsters")'
+            );
+            // 任務二：伏魔令
+            html += renderQuestBtn(
+                'slayBosses',
+                '👑 【伏魔令】擊殺深淵首領 3 尊',
+                `進度：${q.slayBosses.count} / 3`,
+                '獎勵：靈石 500 兩 ＋ 回春卷軸 ×3',
+                'claimQuest("slayBosses")'
+            );
+            // 任務三：踏淵令
+            const f5done = q.reachFloor5.done;
+            html += renderQuestBtn(
+                'reachFloor5',
+                '🏔️ 【踏淵令】踏入鎖妖荒塚第 5 層',
+                f5done ? '已達成' : '尚未抵達第 5 層',
+                '獎勵：所有卷軸各 +2 ＋ 未鑑定暗金古物 ×1',
+                'claimQuest("reachFloor5")'
+            );
+
+            opts.innerHTML = html;
         } else if (type === 'witch') {
             title.innerText = "🔮 盲眼神婆"; content.innerText = `「天眼開光需 50 兩靈石。目前身上有 ${player.unidentifiedCount} 個未鑑定古物。」`;
             if (player.unidentifiedCount > 0) {
@@ -1038,6 +1131,111 @@
     }
 
     function closeNPCDialog() { document.getElementById("npcDialogOverlay").style.display = "none"; }
+
+    // --- 鐵匠：鍛造 ---
+    function smithForge() {
+        if (player.gold < 90) { addLog("⚠️ 靈石不足，鍛造需要 90 兩！"); closeNPCDialog(); return; }
+        player.gold -= 90;
+        player.inventory[0].atkBonus += 7;
+        player.inventory[0].defBonus += 3;
+        renderInventoryUI();
+        addLog(`⚒️ 鍛造成功！【${player.inventory[0].name}】已強化 (攻+7 防+3)。`);
+        closeNPCDialog();
+    }
+
+    // --- 鐵匠：回收道具 ---
+    function sellItem(idx) {
+        const item = player.inventory[idx];
+        if (!item) return;
+        const price = item.atkBonus * 3 + item.defBonus * 2;
+        player.gold += price;
+        addLog(`💰 鐵匠收購【${item.name}】，獲得靈石 ${price} 兩。`);
+        player.inventory[idx] = null;
+        renderInventoryUI();
+        // 重新開啟對話以更新列表
+        openNPCDialog('blacksmith');
+    }
+
+    // --- 白鶴道人：渲染任務按鈕 ---
+    function renderQuestBtn(key, title, progress, reward, claimCall) {
+        const q = player.quests[key];
+        let stateColor = "#aaa";
+        let stateLabel = "";
+        let btnStyle = "";
+        let disabled = "";
+
+        if (q.done) {
+            stateColor = "#888"; stateLabel = "✅ 已完成領取";
+            disabled = "disabled"; btnStyle = "opacity:0.5; cursor:not-allowed;";
+        } else if (q.active) {
+            // 判斷是否達成
+            const achieved = (key === 'slayMonsters' && q.count >= q.goal)
+                          || (key === 'slayBosses'   && q.count >= q.goal)
+                          || (key === 'reachFloor5'  && q.count >= 1);
+            if (achieved) {
+                stateColor = "#00ffcc"; stateLabel = "🎉 已達成！點此領取獎勵";
+                btnStyle = "border-color:#00ffcc; color:#00ffcc;";
+            } else {
+                stateColor = "#f1c40f"; stateLabel = "📋 進行中";
+                disabled = "disabled"; btnStyle = "opacity:0.7; cursor:not-allowed;";
+            }
+        } else {
+            stateLabel = "🔘 點此接受任務";
+            btnStyle = "border-color:#a0c4ff; color:#a0c4ff;";
+        }
+
+        return `
+        <div style="background:#0d0f18; border:1px solid #2a2840; border-radius:3px; padding:7px 9px; margin-bottom:5px; font-size:11px;">
+            <div style="font-weight:bold; color:#d4af37; margin-bottom:3px;">${title}</div>
+            <div style="color:#999; margin-bottom:2px;">${progress}</div>
+            <div style="color:#7ec8a0; margin-bottom:5px;">${reward}</div>
+            <button class="npc-option-btn" style="width:100%; font-size:11px; ${btnStyle}" ${disabled}
+                onclick="${q.active && !q.done ? claimCall : (!q.active && !q.done ? `acceptQuest('${key}')` : '')}">
+                <span style="color:${stateColor};">${stateLabel}</span>
+            </button>
+        </div>`;
+    }
+
+    // --- 白鶴道人：接受任務 ---
+    function acceptQuest(key) {
+        const q = player.quests[key];
+        if (q.active || q.done) return;
+        q.active = true;
+        const names = { slayMonsters: '斬妖令', slayBosses: '伏魔令', reachFloor5: '踏淵令' };
+        addLog(`📜 已接受白鶴道人仙令：【${names[key]}】，請前往深淵完成目標！`);
+        openNPCDialog('craneElder'); // 重整對話框顯示進度
+    }
+
+    // --- 白鶴道人：領取獎勵 ---
+    function claimQuest(key) {
+        const q = player.quests[key];
+        if (!q.active || q.done) return;
+        const achieved = (key === 'slayMonsters' && q.count >= q.goal)
+                      || (key === 'slayBosses'   && q.count >= q.goal)
+                      || (key === 'reachFloor5'  && q.count >= 1);
+        if (!achieved) return;
+        q.done = true;
+
+        if (key === 'slayMonsters') {
+            player.gold += 200;
+            player.scrolls.portal += 2;
+            addLog("🎉 【斬妖令】完成！獲得靈石 200 兩 ＋ 傳送卷軸 ×2！");
+        } else if (key === 'slayBosses') {
+            player.gold += 500;
+            player.scrolls.healing += 3;
+            addLog("🎉 【伏魔令】完成！獲得靈石 500 兩 ＋ 回春術卷軸 ×3！");
+        } else if (key === 'reachFloor5') {
+            player.scrolls.portal  += 2;
+            player.scrolls.lightning += 2;
+            player.scrolls.blizzard  += 2;
+            player.scrolls.healing   += 2;
+            player.unidentifiedCount++;
+            addLog("🎉 【踏淵令】完成！所有卷軸各 +2 ＋ 獲得未鑑定暗金古物 ×1！");
+        }
+
+        updateScrollsCountUI();
+        openNPCDialog('craneElder');
+    }
 
     // --- 廟祝卷軸販售 ---
     const scrollPrices = { portal: 30, lightning: 40, blizzard: 50, healing: 35 };
@@ -1078,7 +1276,8 @@
             baseDef: player.baseDef,
             unidentifiedCount: player.unidentifiedCount,
             inventory: player.inventory,
-            scrolls: player.scrolls
+            scrolls: player.scrolls,
+            quests: player.quests
         };
 
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savePackage, null, 2));
@@ -1118,6 +1317,7 @@
                 player.unidentifiedCount = loadedData.unidentifiedCount || 0;
                 player.inventory = loadedData.inventory;
                 player.scrolls = loadedData.scrolls;
+                if (loadedData.quests) player.quests = loadedData.quests;
 
                 // 同步環境與刷新 UI
                 syncHeroClassUI(player.heroClass);
