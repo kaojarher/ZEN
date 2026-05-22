@@ -1454,19 +1454,66 @@
         openNPCDialog('craneElder');
     }
 
-    // --- 廟祝卷軸販售 ---
+    // --- 廟祝卷軸販售（帶數量選擇器，不關閉對話） ---
     const scrollPrices = { portal: 30, lightning: 40, blizzard: 50, healing: 35 };
+
     function buyScroll(type, price, label) {
-        if (player.gold < price) {
+        // 算出最多可買幾個
+        const maxAffordable = Math.floor(player.gold / price);
+        if (maxAffordable === 0) {
             addLog(`⚠️ 靈石不足！購買【${label}】需要 ${price} 兩，目前僅有 ${player.gold} 兩。`);
-            closeNPCDialog();
             return;
         }
-        player.gold -= price;
-        player.scrolls[type]++;
+        // 在對話框內插入數量選擇 UI（覆蓋 opts 區塊）
+        const opts = document.getElementById("npcDialogOptions");
+        opts.innerHTML = `
+            <div style="background:#0d1020; border:1px solid #d4af37; border-radius:4px; padding:14px; margin-bottom:8px;">
+                <div style="color:#d4af37; font-size:16px; font-weight:bold; margin-bottom:10px;">${label}</div>
+                <div style="color:#aaa; font-size:14px; margin-bottom:4px;">單價：<span style="color:#f1c40f;">${price} 兩</span>　目前靈石：<span style="color:#f1c40f;" id="buy-gold-disp">${player.gold} 兩</span></div>
+                <div style="color:#aaa; font-size:14px; margin-bottom:12px;">最多可購：<span style="color:#00ffcc;">${maxAffordable}</span> 個</div>
+
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <button onclick="adjustBuyQty(-5)"  style="min-width:52px; font-size:18px; padding:8px;">-5</button>
+                    <button onclick="adjustBuyQty(-1)"  style="min-width:52px; font-size:18px; padding:8px;">-1</button>
+                    <div style="flex:1; text-align:center; font-size:24px; font-weight:bold; color:#fff;" id="buy-qty-disp">1</div>
+                    <button onclick="adjustBuyQty(+1)"  style="min-width:52px; font-size:18px; padding:8px;">+1</button>
+                    <button onclick="adjustBuyQty(+5)"  style="min-width:52px; font-size:18px; padding:8px;">+5</button>
+                </div>
+                <div style="color:#aaa; font-size:14px; margin-bottom:12px; text-align:center;">
+                    合計費用：<span style="color:#f1c40f; font-size:18px; font-weight:bold;" id="buy-total-disp">${price} 兩</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="confirmBuyScroll()" style="flex:1; font-size:16px; border-color:#00ffcc; color:#00ffcc; padding:12px;">✅ 確認購買</button>
+                    <button onclick="openNPCDialog('temple')" style="flex:1; font-size:16px; padding:12px;">↩ 返回</button>
+                </div>
+            </div>
+        `;
+        // 把購買狀態存到全域暫存，供 confirm 使用
+        window._buyCtx = { type, price, label, max: maxAffordable, qty: 1 };
+    }
+
+    function adjustBuyQty(delta) {
+        if (!window._buyCtx) return;
+        const ctx = window._buyCtx;
+        ctx.qty = Math.max(1, Math.min(ctx.max, ctx.qty + delta));
+        document.getElementById("buy-qty-disp").innerText = ctx.qty;
+        document.getElementById("buy-total-disp").innerText = `${ctx.qty * ctx.price} 兩`;
+    }
+
+    function confirmBuyScroll() {
+        if (!window._buyCtx) return;
+        const { type, price, label, qty } = window._buyCtx;
+        const total = qty * price;
+        if (player.gold < total) {
+            addLog(`⚠️ 靈石不足！需要 ${total} 兩，目前僅有 ${player.gold} 兩。`);
+            return;
+        }
+        player.gold -= total;
+        player.scrolls[type] += qty;
         updateScrollsCountUI();
-        addLog(`🛒 向廟祝購入【${label}】×1，消耗 ${price} 兩靈石。剩餘 ${player.gold} 兩。`);
-        closeNPCDialog();
+        addLog(`🛒 向廟祝購入【${label}】×${qty}，消耗 ${total} 兩靈石。剩餘 ${player.gold} 兩。`);
+        window._buyCtx = null;
+        openNPCDialog('temple'); // 回到廟祝主選單
     }
     function enterActivePortal() { if (activePortal) { caveFloor = activePortal.floor; initMap("cave", "portal"); } }
     function addLog(msg) { const logBox = document.getElementById("log"); const div = document.createElement("div"); div.innerText = msg; logBox.appendChild(div); logBox.scrollTop = logBox.scrollHeight; }
